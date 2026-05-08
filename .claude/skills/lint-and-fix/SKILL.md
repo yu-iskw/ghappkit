@@ -19,16 +19,29 @@ An autonomous loop for the agent to identify, fix, and verify linting and format
 
 See [Trunk: Install](https://github.com/trunk-io/docs/blob/main/code-quality/overview/cli/getting-started/install.md) (NPM / `@trunkio/launcher`).
 
+### Cold environments and captured logs (CI, sandboxes, agents)
+
+On a **first** run, Trunk may spend a long time downloading its CLI and hermetic linter tools with little or no stdout—**do not** treat a silent, in-progress process as a failed check. Prefer:
+
+1. **`npx --yes @trunkio/launcher install`** once before `check` / `fmt` when the environment is fresh or Trunk complains about missing tools.
+2. **Non-interactive flags** on checks: add **`--ci --no-progress`** (still use **`-a`** when you need the whole repo). Example: `npx --yes @trunkio/launcher check -a --ci --no-progress`.
+
+If an orchestration timeout is unavoidable, say explicitly that **full Trunk verification did not finish** rather than assuming the tree is clean.
+
+### `uv` / Vulture side effects
+
+**`make vulture`** runs **`uv run vulture`**. `uv` may **recreate `.venv`** or switch the interpreter when it reconciles the version in `.python-version` with what is installed—treat that as normal after dependency or Python changes, not as a Vulture bug.
+
 ## Loop Logic
 
-1. **Identify**: Run `make lint` (which executes `trunk check -a`) to list current violations. If `trunk` is unavailable, use **`npx --yes @trunkio/launcher check -a`** instead.
+1. **Identify**: Run `make lint` (which executes `trunk check -a`) to list current violations. If `trunk` is unavailable, use **`npx --yes @trunkio/launcher check -a`** instead (after **`npx --yes @trunkio/launcher install`** on a cold machine). In non-interactive shells, prefer **`check -a --ci --no-progress`** for clearer, log-friendly output.
 2. **Analyze**: Examine the output from Trunk, focusing on the file path, line number, and error message.
 3. **Fix**:
    - For formatting issues, run `make format` (which executes `trunk fmt -a`), or **`npx --yes @trunkio/launcher fmt -a`** when `trunk` is not on `PATH`.
    - For linting violations, apply the minimum necessary change to the source code to resolve the error.
    - Resolve findings by changing code, types, imports, or structure—not with suppressions (see **Constraints**).
 4. **Verify**:
-   - Re-run `make lint` (or `npx --yes @trunkio/launcher check -a` if `trunk` is missing).
+   - Re-run `make lint` (or `npx --yes @trunkio/launcher check -a --ci --no-progress` if `trunk` is missing).
    - Run **`make vulture`** (`uv run vulture`; configuration under `pyproject.toml` `[tool.vulture]`). Treat unused-code findings like other fixable issues: remove dead code or refactor so symbols are used; if a hit is a false positive (dynamic use, framework magic), adjust `[tool.vulture]` **only** when the user asked for that policy change—otherwise stop and ask a human.
    - For type-only triage, `uv run pyright` also reads `pyproject.toml` `[tool.pyright]`; prefer Trunk for CI parity.
    - When the change affects **executable code** (behavior, types, imports beyond formatting), run **`make test`** after lint passes (pytest-cov; see **Resources**). Same entrypoint as CI: `dev/test_python.sh`. Formatting- or comment-only edits may stop after `make lint` and `make vulture`.
@@ -44,7 +57,7 @@ See [Trunk: Install](https://github.com/trunk-io/docs/blob/main/code-quality/ove
 
 ## Termination Criteria
 
-- No more errors reported by `make lint` (or the `npx --yes @trunkio/launcher check -a` equivalent).
+- No more errors reported by `make lint` (or the `npx --yes @trunkio/launcher check -a --ci --no-progress` equivalent once Trunk has finished).
 - No unresolved issues from **`make vulture`** that the agent can fix without policy changes or guesswork.
 - When fixes touched executable code: **`make test`** passes.
 - Reached max iteration limit (default: 5).
@@ -60,7 +73,7 @@ See [Trunk: Install](https://github.com/trunk-io/docs/blob/main/code-quality/ove
 ### Scenario: `trunk` not installed globally
 
 1. `make lint` fails with `trunk: command not found` (or the shell cannot resolve `trunk`).
-2. Agent runs `npx --yes @trunkio/launcher check -a` and `npx --yes @trunkio/launcher fmt -a` as needed.
+2. Agent runs `npx --yes @trunkio/launcher install`, then `npx --yes @trunkio/launcher check -a --ci --no-progress` and `npx --yes @trunkio/launcher fmt -a` as needed.
 3. Agent runs `make vulture` and addresses or escalates unused-code output.
 4. When behavior changed: `make test` passes.
 
