@@ -1,13 +1,44 @@
-# Copyright 2025 yu-iskw
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+"""FastAPI-native GitHub App framework."""
+
+from ghappkit_client.errors import GhappkitError
+
+from ghappkit.app import GitHubApp
+from ghappkit.context import RepositoryRef, SenderRef, WebhookContext
+from ghappkit.exceptions import (
+    EventModelError,
+    HandlerError,
+    PayloadParseError,
+    RepoConfigError,
+    WebhookHeaderError,
+    WebhookSignatureError,
+)
+from ghappkit.execution import (
+    DeliveryExecutor,
+    FastAPIBackgroundExecutor,
+    InlineExecutor,
+    NoopExecutor,
+)
+from ghappkit.settings import GitHubAppSettings
+
+# RFC-compatible aliases (prefer Ghappkit* names for new code).
+OctoflowError = GhappkitError
+
+__all__ = [
+    "DeliveryExecutor",
+    "EventModelError",
+    "FastAPIBackgroundExecutor",
+    "GhappkitError",
+    "GitHubApp",
+    "GitHubAppSettings",
+    "HandlerError",
+    "InlineExecutor",
+    "NoopExecutor",
+    "OctoflowError",
+    "PayloadParseError",
+    "RepoConfigError",
+    "RepositoryRef",
+    "SenderRef",
+    "WebhookContext",
+    "WebhookHeaderError",
+    "WebhookSignatureError",
+]

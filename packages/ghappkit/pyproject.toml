@@ -30,4 +30,13 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+  "fastapi>=0.115",
+  "pydantic>=2",
+  "pydantic-settings>=2",
+  "PyYAML>=6",
+  "ghappkit-client",
+]
+
+[tool.uv.sources]
+ghappkit-client = { workspace = true }

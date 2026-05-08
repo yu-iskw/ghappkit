@@ -1,13 +1,38 @@
-# Copyright 2025 yu-iskw
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+"""GitHub API client package for ghappkit."""
+
+from ghappkit_client.auth import create_app_jwt, load_private_key_pem
+from ghappkit_client.client import DefaultGitHubClient, GitHubClient
+from ghappkit_client.errors import (
+    GhappkitError,
+    GitHubApiError,
+    InstallationAuthError,
+    redact_secrets,
+)
+from ghappkit_client.graphql import GitHubGraphQLClient
+from ghappkit_client.models import GitHubResponse, InstallationToken
+from ghappkit_client.pagination import iter_rest_pages
+from ghappkit_client.rate_limit import RateLimitInfo, parse_rate_limit
+from ghappkit_client.rest import GitHubRestClient
+from ghappkit_client.token_provider import InstallationTokenProvider
+from ghappkit_client.transport import join_api_url, send_request
+
+__all__ = [
+    "DefaultGitHubClient",
+    "GhappkitError",
+    "GitHubApiError",
+    "GitHubClient",
+    "GitHubGraphQLClient",
+    "GitHubResponse",
+    "GitHubRestClient",
+    "InstallationAuthError",
+    "InstallationToken",
+    "InstallationTokenProvider",
+    "RateLimitInfo",
+    "create_app_jwt",
+    "iter_rest_pages",
+    "join_api_url",
+    "load_private_key_pem",
+    "parse_rate_limit",
+    "redact_secrets",
+    "send_request",
+]

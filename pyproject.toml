@@ -33,7 +33,15 @@ members = [
   "packages/ghappkit",
   "packages/ghappkit-client",
   "packages/ghappkit-testing",
+  "examples/issue-commenter",
+  "examples/repo-config-demo",
+  "examples/custom-routes",
 ]
+
+[tool.uv.sources]
+ghappkit = { workspace = true }
+ghappkit-client = { workspace = true }
+ghappkit-testing = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = [
