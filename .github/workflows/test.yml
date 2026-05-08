@@ -4,9 +4,11 @@ on:
   pull_request:
     paths:
       - .github/workflows/test.yml
+      - dev/**
+      - packages/**
       - pyproject.toml
-      - src/your_package/**/*.py
-      - pylintrc
+      - ruff.toml
+      - uv.lock
   push:
     branches:
       - main
@@ -22,7 +24,7 @@ jobs:
       run:
         shell: bash
     env:
-      PYTHON_PACKAGE_NAME: YOUR_PYTHON_PACKAGE_NAME
+      PYTHON_PACKAGE_NAME: ghappkit
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python

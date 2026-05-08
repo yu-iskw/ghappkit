@@ -60,7 +60,7 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"src/your_package/tests/**" = [
+"packages/*/src/*/tests/**" = [
   "S101", # assert used in tests
 ]
 

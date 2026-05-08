@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Copyright 2025 yu-iskw
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -Eo pipefail
+"""Template tests."""
 
-# Build the package
-uv build --all-packages --verbose
+
+def test_dummy() -> None:
+    """Placeholder test; replace with real cases when the package grows."""
+    assert True  # nosec B101

@@ -1,6 +1,6 @@
-# {{ project_name }}
+# ghappkit (GitHub App Kit)
 
-A production-ready Python package using modern tooling.
+FastAPI-native framework for building production-grade GitHub Apps in Python.
 
 ## Features
 

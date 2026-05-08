@@ -20,16 +20,18 @@ SCRIPT_FILE="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "${SCRIPT_FILE}")"
 MODULE_DIR="$(dirname "${SCRIPT_DIR}")"
 
-# All …/tests dirs under src in one pytest run; absolute --cov path avoids editable-install quirks.
-mapfile -d '' TEST_DIRS < <(find "${MODULE_DIR}/src" -name "tests" -type d -print0) || true
+# All …/tests dirs under package src roots in one pytest run.
+mapfile -d '' TEST_DIRS < <(find "${MODULE_DIR}/packages" -path "*/src/*/tests" -type d -print0) || true
 if [[ ${#TEST_DIRS[@]} -eq 0 ]]; then
-	echo "error: no tests directories found under ${MODULE_DIR}/src" >&2
+	echo "error: no tests directories found under ${MODULE_DIR}/packages" >&2
 	exit 1
 fi
 
 cd "${MODULE_DIR}"
 uv run pytest -v -s --cache-clear \
-	--cov="${MODULE_DIR}/src/your_package" \
+	--cov="${MODULE_DIR}/packages/ghappkit/src/ghappkit" \
+	--cov="${MODULE_DIR}/packages/ghappkit-client/src/ghappkit_client" \
+	--cov="${MODULE_DIR}/packages/ghappkit-testing/src/ghappkit_testing" \
 	--cov-report=term-missing \
 	--cov-report=xml \
 	"${TEST_DIRS[@]}"

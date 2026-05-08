@@ -2,11 +2,11 @@
 
 - **Status:** Proposed
 - **Date:** 2026-05-08
-- **Related RFC:** [RFC 0001: octoflow — FastAPI-native framework for enterprise-grade GitHub Apps](../rfcs/0001-octoflow-fastapi-github-app-framework.md)
+- **Related RFC:** [RFC 0001: ghappkit — FastAPI-native framework for enterprise-grade GitHub Apps](../rfcs/0001-octoflow-fastapi-github-app-framework.md)
 
 ## Context
 
-octoflow is intended to become a FastAPI-native framework for implementing GitHub Apps in Python.
+ghappkit is intended to become a FastAPI-native framework for implementing GitHub Apps in Python.
 
 The framework has at least three distinct responsibility groups:
 
@@ -34,16 +34,16 @@ The framework has at least three distinct responsibility groups:
 
 These concerns evolve at different rates. The GitHub API client may be useful outside FastAPI, while the FastAPI framework should not be forced to expose every GitHub API detail directly.
 
-uv workspaces support multi-package repositories with a shared lockfile and workspace dependencies. This makes them a good fit for developing `octoflow`, `octoflow-github`, and `octoflow-testing` together while keeping their APIs and packaging boundaries explicit.
+uv workspaces support multi-package repositories with a shared lockfile and workspace dependencies. This makes them a good fit for developing `ghappkit`, `ghappkit-client`, and `ghappkit-testing` together while keeping their APIs and packaging boundaries explicit.
 
 ## Decision
 
 Use a uv workspace for the repository and split the implementation into separate packages:
 
 ```text
-packages/octoflow          # FastAPI framework
-packages/octoflow-github   # GitHub App auth and REST/GraphQL client
-packages/octoflow-testing  # testing and simulation utilities
+packages/ghappkit          # FastAPI framework
+packages/ghappkit-client   # GitHub App auth and REST/GraphQL client
+packages/ghappkit-testing  # testing and simulation utilities
 ```
 
 The root `pyproject.toml` should define the workspace:
@@ -51,16 +51,16 @@ The root `pyproject.toml` should define the workspace:
 ```toml
 [tool.uv.workspace]
 members = [
-  "packages/octoflow",
-  "packages/octoflow-github",
-  "packages/octoflow-testing",
+  "packages/ghappkit",
+  "packages/ghappkit-client",
+  "packages/ghappkit-testing",
   "examples/*",
 ]
 
 [tool.uv.sources]
-octoflow = { workspace = true }
-octoflow-github = { workspace = true }
-octoflow-testing = { workspace = true }
+ghappkit = { workspace = true }
+ghappkit-client = { workspace = true }
+ghappkit-testing = { workspace = true }
 ```
 
 ## Rationale
@@ -83,9 +83,9 @@ The packages may need different stability promises:
 
 | Package            | API stability expectation                            |
 | ------------------ | ---------------------------------------------------- |
-| `octoflow`         | Stable developer-facing framework API                |
-| `octoflow-github`  | Stable client protocol with evolving helper coverage |
-| `octoflow-testing` | Stable test ergonomics, flexible internals           |
+| `ghappkit`         | Stable developer-facing framework API                |
+| `ghappkit-client`  | Stable client protocol with evolving helper coverage |
+| `ghappkit-testing` | Stable test ergonomics, flexible internals           |
 
 ### Preserve local development ergonomics
 
@@ -112,13 +112,13 @@ A uv workspace allows contributors to work across package boundaries with one lo
 
 ### Alternative 1: Single package only
 
-Keep everything under one `octoflow` package.
+Keep everything under one `ghappkit` package.
 
 **Rejected because:** it is simpler initially but risks creating a large monolith that mixes FastAPI framework logic, GitHub API transport, testing utilities, and future integrations.
 
 ### Alternative 2: Split only after v1
 
-Start with one package and extract `octoflow-github` later.
+Start with one package and extract `ghappkit-client` later.
 
 **Rejected because:** the GitHub client boundary is architectural. Delaying the split would make public API design harder and increase migration cost.
 
@@ -133,7 +133,7 @@ Create independent repositories for framework, GitHub client, and testing utilit
 Initial package responsibilities:
 
 ```text
-octoflow/
+ghappkit/
   app.py
   routing.py
   context.py
@@ -143,7 +143,7 @@ octoflow/
   logging.py
   exceptions.py
 
-octoflow_github/
+ghappkit_client/
   auth.py
   client.py
   rest.py
@@ -152,7 +152,7 @@ octoflow_github/
   transport.py
   errors.py
 
-octoflow_testing/
+ghappkit_testing/
   fixtures.py
   signatures.py
   fake_client.py
@@ -166,11 +166,11 @@ The framework package should depend on the GitHub client package:
 dependencies = [
   "fastapi>=0.115",
   "pydantic>=2",
-  "octoflow-github",
+  "ghappkit-client",
 ]
 
 [tool.uv.sources]
-octoflow-github = { workspace = true }
+ghappkit-client = { workspace = true }
 ```
 
 The testing package should depend on both:
@@ -178,19 +178,19 @@ The testing package should depend on both:
 ```toml
 [project]
 dependencies = [
-  "octoflow",
-  "octoflow-github",
+  "ghappkit",
+  "ghappkit-client",
   "pytest>=8",
 ]
 
 [tool.uv.sources]
-octoflow = { workspace = true }
-octoflow-github = { workspace = true }
+ghappkit = { workspace = true }
+ghappkit-client = { workspace = true }
 ```
 
 ## Follow-ups
 
 1. Convert the current template package to the workspace layout.
-2. Add minimal package skeletons for `octoflow`, `octoflow-github`, and `octoflow-testing`.
+2. Add minimal package skeletons for `ghappkit`, `ghappkit-client`, and `ghappkit-testing`.
 3. Add CI jobs that run lint, type checks, and tests across all workspace packages.
 4. Add an example app that imports packages through workspace dependencies.

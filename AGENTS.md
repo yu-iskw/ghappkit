@@ -54,6 +54,7 @@ make clean        # Clean build artifacts
 - **Cyclomatic complexity**: max **10** per function (Ruff `C901`)
 - **Maintainability**: CodeQL `security-and-quality` tracks long-term health
 - If an edit pushes complexity over **10**, refactor into smaller functions before finishing
+- Do not claim implementation is complete without direct verification evidence (successful command output, file existence checks, or equivalent); if verification is inconclusive, state uncertainty explicitly
 
 ## Session postmortem (coding agents)
 
@@ -83,11 +84,17 @@ make clean        # Clean build artifacts
 - Trunk pins tool versions: avoid installing the same linters globally
 - Commit `uv.lock` (do not gitignore it)
 - If Trunk errors about a missing tool, run `trunk install`
+- Before substantial file creation in a new target path, run a minimal preflight check (path exists and is writable); if blocked, stop and present unblock options before continuing
+- Before taking action, confirm execution mode (read-only vs write-capable). In read-only mode, avoid edit/state-changing tools and report constraints clearly
+- When a user provides an absolute file path, treat it as authoritative and read that exact path first; only try inferred mirror locations if the provided path fails
+- If a command hangs or fails, use a fixed fallback order: verify process/status, inspect logs/output, retry with narrower scope or timeout, then switch to read-only alternatives and report the blocker with next-best action
 
 ## Parallel or multi-step work (Claude Code)
 
 - This repo does **not** ship a built-in parallel orchestration subagent. For concurrent work, use multiple Task invocations, your editor’s multi-agent features, or your own scripts.
 - After substantial or overlapping edits, use the **`verifier`** subagent ([.claude/agents/verifier.md](.claude/agents/verifier.md)) to run **build → lint → test → dependency scan → CodeQL** by delegating each phase to `build-and-fix`, `lint-and-fix`, `test-and-fix`, `security-scan`, and `codeql-fix`.
+- If the user indicates state already exists (for example todos, plans, branches, or artifacts), discover current state and identifiers first, then mutate; do not guess IDs or recreate existing work items
+- If the user repeats the same execution request, do not restart planning; restate current progress, confirm blockers, and resume from the next incomplete item
 
 ## Claude Code subagents
 
@@ -99,23 +106,26 @@ Invoked from Claude Code (Task tool or slash flows). Definitions: [`.claude/agen
 
 Slash-invoked skills live under [`.claude/skills/<name>/SKILL.md`](.claude/skills/). Use a skill when it matches the task; each `SKILL.md` lists prerequisites (some require a CLI on `PATH`). Skills cite this file and `Makefile` targets rather than linking peer-to-peer to other `SKILL.md` files.
 
-| Skill                       | When to use                                                                 |
-| --------------------------- | --------------------------------------------------------------------------- |
-| `build-and-fix`             | Build or packaging failures                                                 |
-| `check-directory-structure` | After bulk edits; audit layout; fix flat/misplaced files                    |
-| `codeql-fix`                | Local CodeQL (`make codeql`); requires CodeQL CLI                           |
-| `lint-and-fix`              | Trunk / linter failures                                                     |
-| `test-and-fix`              | Failing tests                                                               |
-| `setup-dev-env`             | First-time or broken environment                                            |
-| `python-upgrade`            | Dependency upgrades with uv                                                 |
-| `security-scan`             | Trivy / OSV / Grype (`make scan-vulnerabilities`)                           |
-| `initialize-project`        | Renaming the template and bootstrapping                                     |
-| `manage-adr`                | ADRs in `docs/adr` (requires `adr` CLI)                                     |
-| `postmortem`                | Substantive session end; incidents; skip trivial chore-only sessions        |
-| `problem-solving`           | Single-pass XY-aware analysis and scored comparison (default 5 options)     |
-| `deep-problem-solving`      | Same style of report after **ten** multiple-choice questions (one per turn) |
+| Skill                           | When to use                                                                                                                                                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-and-fix`                 | Build or packaging failures                                                                                                                                                                                       |
+| `check-directory-structure`     | After bulk edits; audit layout; fix flat/misplaced files                                                                                                                                                          |
+| `codeql-fix`                    | Local CodeQL (`make codeql`); requires CodeQL CLI                                                                                                                                                                 |
+| `lint-and-fix`                  | Trunk / linter failures                                                                                                                                                                                           |
+| `test-and-fix`                  | Failing tests                                                                                                                                                                                                     |
+| `setup-dev-env`                 | First-time or broken environment                                                                                                                                                                                  |
+| `python-upgrade`                | Dependency upgrades with uv                                                                                                                                                                                       |
+| `security-scan`                 | Trivy / OSV / Grype (`make scan-vulnerabilities`)                                                                                                                                                                 |
+| `initialize-project`            | Renaming the template and bootstrapping                                                                                                                                                                           |
+| `manage-adr`                    | ADRs in `docs/adr` (requires `adr` CLI)                                                                                                                                                                           |
+| `postmortem`                    | Substantive session end; incidents; skip trivial chore-only sessions                                                                                                                                              |
+| `problem-solving`               | Single-pass XY-aware analysis and scored comparison (default 5 options)                                                                                                                                           |
+| `deep-problem-solving`          | Same style of report after **ten** multiple-choice questions (one per turn)                                                                                                                                       |
+| `github-api-contract-research`  | Use when implementing or validating outbound GitHub REST/GraphQL client behavior in `ghappkit`, including operation contracts, installation-token permissions, retries, and helper-vs-fallback mapping decisions. |
+| `github-webhook-event-research` | Use when implementing or validating GitHub webhook handling (receivers, signature verification, event/action mapping, typed event models, and signed test fixtures) with source-linked contract research.         |
 
 Some tools load mirrored skills under `.agents/skills/` instead of `.claude/`. Other repos may add `manage-changelog` when Changie is configured (see **Git workflow**).
+For shared skills, verify `.claude/skills` and `.agents/skills` parity during creation (not only at final cleanup), including path and reference integrity checks.
 
 ## Coding agents & instruction files
 

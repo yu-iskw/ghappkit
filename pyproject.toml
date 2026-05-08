@@ -1,28 +1,5 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build]
-exclude = [
-  ".git",
-  ".venv",
-  ".mypy_cache",
-  ".ruff_cache",
-  ".pyright",
-  ".pytest_cache",
-  ".github",
-  ".trunk",
-  "dev",
-  "src/your_package/tests",
-  "dist",
-  ".python-version",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/your_package"]
-
 [project]
-name = "your-package"
+name = "ghappkit-workspace"
 version = "0.1.0"
 authors = [{ name = "yu-iskw" }]
 readme = "README.md"
@@ -45,13 +22,25 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
-description = "A dbt artifacts parser in python"
+description = "FastAPI-native framework for production-grade GitHub Apps."
 dependencies = []
 
-[project.scripts]
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+  "packages/ghappkit",
+  "packages/ghappkit-client",
+  "packages/ghappkit-testing",
+]
 
 [tool.pytest.ini_options]
-testpaths = ["src/your_package/tests"]
+testpaths = [
+  "packages/ghappkit/src/ghappkit/tests",
+  "packages/ghappkit-client/src/ghappkit_client/tests",
+  "packages/ghappkit-testing/src/ghappkit_testing/tests",
+]
 
 [dependency-groups]
 dev = [
@@ -66,8 +55,16 @@ dev = [
 ]
 
 [tool.pyright]
-include = ["src"]
-extraPaths = ["src"]
+include = [
+  "packages/ghappkit/src",
+  "packages/ghappkit-client/src",
+  "packages/ghappkit-testing/src",
+]
+extraPaths = [
+  "packages/ghappkit/src",
+  "packages/ghappkit-client/src",
+  "packages/ghappkit-testing/src",
+]
 pythonVersion = "3.13"
 typeCheckingMode = "standard"
 venvPath = "."
@@ -76,12 +73,20 @@ reportMissingImports = true
 reportMissingTypeStubs = "warning"
 
 [tool.vulture]
-paths = ["src/your_package"]
+paths = [
+  "packages/ghappkit/src/ghappkit",
+  "packages/ghappkit-client/src/ghappkit_client",
+  "packages/ghappkit-testing/src/ghappkit_testing",
+]
 min_confidence = 80
 
 [tool.coverage.run]
 branch = true
-source = ["src/your_package"]
+source = [
+  "packages/ghappkit/src/ghappkit",
+  "packages/ghappkit-client/src/ghappkit_client",
+  "packages/ghappkit-testing/src/ghappkit_testing",
+]
 
 [tool.coverage.report]
 show_missing = true

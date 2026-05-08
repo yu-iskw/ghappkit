@@ -1,12 +1,12 @@
-# RFC 0001: octoflow — FastAPI-native framework for enterprise-grade GitHub Apps
+# RFC 0001: ghappkit — FastAPI-native framework for enterprise-grade GitHub Apps
 
 - **Status:** Proposed
 - **Date:** 2026-05-08
-- **Target repository:** `yu-iskw/octoflow`
+- **Target repository:** `yu-iskw/ghappkit`
 
 ## Summary
 
-This RFC proposes building **octoflow** as a FastAPI-native framework for implementing production-grade GitHub Apps in Python.
+This RFC proposes building **ghappkit** as a FastAPI-native framework for implementing production-grade GitHub Apps in Python.
 
 The framework should let developers quickly build GitHub Apps by providing secure webhook handling, event routing, typed handler contexts, installation-scoped GitHub clients, repository-level configuration, background execution, structured logging, and testing utilities.
 
@@ -34,12 +34,12 @@ This is boilerplate, but it is not trivial boilerplate. A reusable framework sho
 
 Probot provides a proven product model in the JavaScript ecosystem: event handlers, GitHub API access through context, repository config loading, testing helpers, webhook simulation, structured logging, HTTP integration, pagination helpers, extension points, and persistence guidance.
 
-octoflow should provide a comparable developer experience for Python/FastAPI users while preserving Python-native ergonomics.
+ghappkit should provide a comparable developer experience for Python/FastAPI users while preserving Python-native ergonomics.
 
 ## Goals
 
 1. **One-hour useful app**: a developer should be able to create, test, and locally run a useful GitHub App in under one hour.
-2. **FastAPI-native developer experience**: octoflow should compose naturally with FastAPI routers, dependency injection, lifespan hooks, testing, and ASGI deployment.
+2. **FastAPI-native developer experience**: ghappkit should compose naturally with FastAPI routers, dependency injection, lifespan hooks, testing, and ASGI deployment.
 3. **Secure by default**: webhook signature verification, installation token handling, redaction, and safe logging should be built in.
 4. **Composable enterprise posture**: queues, persistence, policy engines, observability, and tenancy isolation should be extension points rather than hard dependencies.
 5. **Typed where useful**: common webhook events should have typed contexts and Pydantic models; unknown events should still work via raw dictionaries.
@@ -70,14 +70,14 @@ The primary public API should feel like a FastAPI extension:
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from octoflow import GitHubApp, GitHubAppSettings
-from octoflow.events import IssueOpenedContext
+from ghappkit import GitHubApp, GitHubAppSettings
+from ghappkit.events import IssueOpenedContext
 
 api = FastAPI()
 
 github = GitHubApp(
     settings=GitHubAppSettings.from_env(),
-    config_file="octoflow.yml",
+    config_file="ghappkit.yml",
 )
 
 
@@ -92,7 +92,7 @@ async def on_issue_opened(ctx: IssueOpenedContext) -> None:
     config = await ctx.config(OctoflowConfig)
 
     if config is not None and not config.enabled:
-        ctx.log.info("octoflow_config_disabled")
+        ctx.log.info("ghappkit_config_disabled")
         return
 
     await ctx.github.rest.issues.create_comment(
@@ -119,7 +119,7 @@ api.include_router(github.router(), prefix="/github")
 The repository should become a uv workspace with separately versionable packages.
 
 ```text
-octoflow/
+ghappkit/
   pyproject.toml
   uv.lock
   README.md
@@ -129,9 +129,9 @@ octoflow/
     adr/
       0001-use-uv-workspace-and-split-github-client.md
   packages/
-    octoflow/
+    ghappkit/
       pyproject.toml
-      src/octoflow/
+      src/ghappkit/
         __init__.py
         app.py
         settings.py
@@ -145,9 +145,9 @@ octoflow/
         testing.py
         exceptions.py
         types.py
-    octoflow-github/
+    ghappkit-client/
       pyproject.toml
-      src/octoflow_github/
+      src/ghappkit_client/
         __init__.py
         auth.py
         client.py
@@ -158,9 +158,9 @@ octoflow/
         errors.py
         rate_limit.py
         transport.py
-    octoflow-testing/
+    ghappkit-testing/
       pyproject.toml
-      src/octoflow_testing/
+      src/ghappkit_testing/
         __init__.py
         fixtures.py
         signatures.py
@@ -181,9 +181,9 @@ Package responsibilities:
 
 | Package            | Responsibility                                                                          | Stability target                      |
 | ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------- |
-| `octoflow`         | FastAPI integration, event routing, contexts, config loading, webhook handling, logging | Stable v1 API                         |
-| `octoflow-github`  | GitHub App auth, installation token cache, REST/GraphQL transport, pagination           | Stable protocol; internals can evolve |
-| `octoflow-testing` | Test helpers, signed payloads, simulated delivery, fake clients                         | Stable enough for app developers      |
+| `ghappkit`         | FastAPI integration, event routing, contexts, config loading, webhook handling, logging | Stable v1 API                         |
+| `ghappkit-client`  | GitHub App auth, installation token cache, REST/GraphQL transport, pagination           | Stable protocol; internals can evolve |
+| `ghappkit-testing` | Test helpers, signed payloads, simulated delivery, fake clients                         | Stable enough for app developers      |
 | `examples/*`       | Reference applications                                                                  | Not API-stable                        |
 
 ## Core architecture
@@ -285,7 +285,7 @@ else:
 
 Examples:
 
-| Header event   | Payload action | octoflow name            |
+| Header event   | Payload action | ghappkit name            |
 | -------------- | -------------- | ------------------------ |
 | `issues`       | `opened`       | `issues.opened`          |
 | `pull_request` | `closed`       | `pull_request.closed`    |
@@ -327,7 +327,7 @@ Repository helper:
 ctx.repo.owner
 ctx.repo.name
 ctx.repo.params()
-ctx.repo.params(path=".github/octoflow.yml")
+ctx.repo.params(path=".github/ghappkit.yml")
 ```
 
 Unknown events must remain usable:
@@ -340,7 +340,7 @@ async def handle_new_event(ctx: WebhookContext[dict[str, Any]]) -> None:
 
 ## GitHub API client
 
-Because the Python GitHub client ecosystem is fragmented, octoflow should define a client protocol and ship a default `httpx`-based implementation in `octoflow-github`.
+Because the Python GitHub client ecosystem is fragmented, ghappkit should define a client protocol and ship a default `httpx`-based implementation in `ghappkit-client`.
 
 ```python
 class GitHubClient(Protocol):
@@ -414,7 +414,7 @@ Repository config should be first-class and Probot-style.
 Default path:
 
 ```text
-.github/octoflow.yml
+.github/ghappkit.yml
 ```
 
 Example:
@@ -473,7 +473,7 @@ Every delivery log should include fields such as:
 
 ```json
 {
-  "component": "octoflow",
+  "component": "ghappkit",
   "event": "issues",
   "action": "opened",
   "qualified_event": "issues.opened",
@@ -502,7 +502,7 @@ Never log:
 Testing utilities should make app behavior testable without real GitHub network calls.
 
 ```python
-from octoflow.testing import OctoflowTestClient, payload_fixture, test_settings
+from ghappkit.testing import OctoflowTestClient, payload_fixture, test_settings
 
 
 async def test_issue_opened_posts_comment() -> None:
@@ -611,9 +611,9 @@ Handler failures after `202` should be logged and routed to `on_error` hooks.
 
 - Rename placeholder package.
 - Convert root to uv workspace.
-- Add `packages/octoflow`.
-- Add `packages/octoflow-github`.
-- Add `packages/octoflow-testing`.
+- Add `packages/ghappkit`.
+- Add `packages/ghappkit-client`.
+- Add `packages/ghappkit-testing`.
 - Keep current quality tooling: uv, Hatchling, Ruff, Pyright, Pylint, Bandit, Semgrep, Trivy, pytest, and CodeQL.
 
 ### Phase 1: Webhook receiver
@@ -655,7 +655,7 @@ Handler failures after `202` should be logged and routed to `on_error` hooks.
 
 ### Phase 5: Repository config
 
-- `.github/octoflow.yml` loader
+- `.github/ghappkit.yml` loader
 - Pydantic validation
 - Default config support
 - Config file override
@@ -695,7 +695,7 @@ Handler failures after `202` should be logged and routed to `on_error` hooks.
 | M1 webhook receiver | Valid GitHub-style signed payload returns `202`; invalid signature returns `401` |
 | M2 dispatch         | `@github.on("issues.opened")` receives a context in tests                        |
 | M3 auth/client      | Handler can call GitHub API through installation-scoped client                   |
-| M4 config           | Handler can load and validate `.github/octoflow.yml`                             |
+| M4 config           | Handler can load and validate `.github/ghappkit.yml`                             |
 | M5 background       | Webhook returns before handler completion with FastAPI background task           |
 | M6 testing          | App behavior can be tested without real GitHub network calls                     |
 | M7 docs             | New developer can build the issue-commenter example in under one hour            |
@@ -715,23 +715,23 @@ Handler failures after `202` should be logged and routed to `on_error` hooks.
 
 ## Open questions
 
-1. Should `octoflow-github` initially use only `httpx`, or wrap an existing third-party client?
+1. Should `ghappkit-client` initially use only `httpx`, or wrap an existing third-party client?
 2. Should v1 require Python 3.11+ or support Python 3.10?
 3. Should event models be hand-written for v1 or generated from GitHub webhook schemas?
-4. Should `octoflow-testing` be separate from day one or live under `octoflow.testing` until APIs stabilize?
-5. Should the default config file be `.github/octoflow.yml`, `.github/octoflow.yaml`, or support both?
+4. Should `ghappkit-testing` be separate from day one or live under `ghappkit.testing` until APIs stabilize?
+5. Should the default config file be `.github/ghappkit.yml`, `.github/ghappkit.yaml`, or support both?
 6. Should webhook handlers return values, or should all side effects be explicit?
-7. Should octoflow expose FastAPI dependencies for settings, current delivery, and client access?
+7. Should ghappkit expose FastAPI dependencies for settings, current delivery, and client access?
 8. Should idempotency be built into v1 or documented as an enterprise extension?
 
 ## Recommendation
 
-Implement octoflow as a **practical FastAPI-native framework** with a uv workspace split:
+Implement ghappkit as a **practical FastAPI-native framework** with a uv workspace split:
 
 ```text
-packages/octoflow          # FastAPI framework
-packages/octoflow-github   # GitHub App auth and REST/GraphQL client
-packages/octoflow-testing  # testing and simulation utilities
+packages/ghappkit          # FastAPI framework
+packages/ghappkit-client   # GitHub App auth and REST/GraphQL client
+packages/ghappkit-testing  # testing and simulation utilities
 ```
 
 The first public release should optimize for:
