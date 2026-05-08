@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import time
 from collections.abc import Callable
 from typing import Any
@@ -14,6 +15,13 @@ from ghappkit.exceptions import RepoConfigError
 from ghappkit.settings import GitHubAppSettings
 
 
+def _snapshot_repo_config(value: Any) -> Any:
+    """Detach cached config from callers so mutations cannot leak across deliveries."""
+    if value is None:
+        return None
+    if isinstance(value, BaseModel):
+        return value.model_copy(deep=True)
+    return copy.deepcopy(value)
 class RepoConfigLoader:
     """Load ``.github/ghappkit.yml`` via the GitHub Contents API."""
 
@@ -50,7 +58,7 @@ class RepoConfigLoader:
         if cached and self._ttl > 0:
             ts, value = cached
             if now - ts < self._ttl:
-                return value
+                return _snapshot_repo_config(value)
 
         text = await ctx.github.rest.issues.fetch_repo_text_file(
             owner=repo.owner,
@@ -60,8 +68,9 @@ class RepoConfigLoader:
         )
         if text is None:
             result = self._finalize_default(model, default)
-            self._maybe_store(cache_key, now, result)
-            return result
+            stored = _snapshot_repo_config(result)
+            self._maybe_store(cache_key, now, stored)
+            return _snapshot_repo_config(stored)
 
         try:
             loaded = yaml.safe_load(text)
@@ -69,8 +78,9 @@ class RepoConfigLoader:
             raise RepoConfigError("repository configuration YAML is invalid") from exc
 
         parsed = self._validate(model, loaded)
-        self._maybe_store(cache_key, now, parsed)
-        return parsed
+        stored = _snapshot_repo_config(parsed)
+        self._maybe_store(cache_key, now, stored)
+        return _snapshot_repo_config(stored)
 
     def _maybe_store(self, key: tuple[Any, ...], now: float, value: Any) -> None:
         if self._ttl > 0:

@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from ghappkit_client.transport import join_api_url, raise_for_github_status, send_request
+from ghappkit_client.transport import graphql_api_url, raise_for_github_status, send_request
 
 
 class GitHubGraphQLClient:
@@ -31,7 +31,7 @@ class GitHubGraphQLClient:
         variables: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Execute a GraphQL query."""
-        url = join_api_url(self._api_base, "/graphql")
+        url = graphql_api_url(self._api_base)
         headers = {
             "Authorization": self._auth_header,
             "Accept": "application/vnd.github+json",

@@ -19,6 +19,20 @@ def join_api_url(base: str, path: str) -> str:
     return urljoin(base.rstrip("/") + "/", path.lstrip("/"))
 
 
+def graphql_api_url(api_base_url: str) -> str:
+    """Map GitHub REST API base URL to the GraphQL HTTP endpoint.
+
+    * GitHub.com REST lives at ``https://api.github.com``; GraphQL is
+      ``https://api.github.com/graphql``.
+    * GitHub Enterprise Server REST is typically ``https://HOSTNAME/api/v3``;
+      GraphQL is ``https://HOSTNAME/api/graphql`` (not ``.../api/v3/graphql``).
+    """
+    base = api_base_url.rstrip("/")
+    if base.endswith("/api/v3"):
+        return base[: -len("/api/v3")] + "/api/graphql"
+    return join_api_url(base, "/graphql")
+
+
 async def send_request(
     client: httpx.AsyncClient,
     method: str,

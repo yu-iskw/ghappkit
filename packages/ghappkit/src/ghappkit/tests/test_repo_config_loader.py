@@ -139,3 +139,43 @@ def test_repo_config_validation_error_raises() -> None:
             await loader.load(ctx, model=SampleCfg, file_name=None, default=None)
 
     asyncio.run(run())
+
+
+def test_repo_config_ttl_returns_independent_copies() -> None:
+    """Regression: mutating one delivery's config must not affect cached reads."""
+    settings = GitHubAppSettings(
+        app_id=1,
+        webhook_secret=SecretStr("s"),
+        config_file=".github/ghappkit.yml",
+    )
+    loader = RepoConfigLoader(settings, ttl_seconds=3600.0, clock=lambda: 0.0)
+
+    async def run() -> None:
+        ctx = WebhookContext(
+            delivery_id="d",
+            event="push",
+            action=None,
+            payload={},
+            raw_payload={
+                "repository": {
+                    "name": "demo",
+                    "owner": {"login": "acme"},
+                    "default_branch": "main",
+                },
+            },
+            installation_id=1,
+            repo=RepositoryRef(owner="acme", name="demo"),
+            sender=None,
+            github=_stub_github(["enabled: true\n"]),
+            log=BoundLogger(logging.getLogger("ghappkit.tests.repo_cfg_ttl"), {}),
+            request=None,
+            _config_loader=loader,
+        )
+        cfg1 = await loader.load(ctx, model=SampleCfg, file_name=None, default=None)
+        assert cfg1 is not None
+        cfg1.enabled = False
+        cfg2 = await loader.load(ctx, model=SampleCfg, file_name=None, default=None)
+        assert cfg2 is not None
+        assert cfg2.enabled is True
+
+    asyncio.run(run())

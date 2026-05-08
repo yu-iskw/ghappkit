@@ -14,7 +14,7 @@ from ghappkit_client.pagination import iter_rest_pages
 from ghappkit_client.rate_limit import RateLimitInfo, parse_rate_limit
 from ghappkit_client.rest import GitHubRestClient
 from ghappkit_client.token_provider import InstallationTokenProvider
-from ghappkit_client.transport import join_api_url, send_request
+from ghappkit_client.transport import graphql_api_url, join_api_url, send_request
 
 __all__ = [
     "DefaultGitHubClient",
@@ -29,6 +29,7 @@ __all__ = [
     "InstallationTokenProvider",
     "RateLimitInfo",
     "create_app_jwt",
+    "graphql_api_url",
     "iter_rest_pages",
     "join_api_url",
     "load_private_key_pem",

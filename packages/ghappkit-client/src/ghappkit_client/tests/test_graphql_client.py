@@ -29,6 +29,29 @@ def test_graphql_execute_returns_data_subset() -> None:
     asyncio.run(run())
 
 
+def test_graphql_execute_posts_to_ghes_graphql_endpoint() -> None:
+    """GHES REST base is /api/v3; GraphQL must be /api/graphql (not /api/v3/graphql)."""
+
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"data": {"viewer": {"login": "pat"}}})
+
+    async def run() -> None:
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            gql = GitHubGraphQLClient(
+                http_client=client,
+                api_base_url="https://github.enterprise.example/api/v3",
+                auth_header="Bearer tok",
+            )
+            await gql.execute("{ viewer { login } }")
+
+    asyncio.run(run())
+    assert seen["url"] == "https://github.enterprise.example/api/graphql"
+
+
 def test_graphql_execute_raises_on_graphql_errors() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
