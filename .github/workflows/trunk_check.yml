@@ -22,5 +22,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install workspace (Pyright / linters resolve imports from .venv)
+        run: bash dev/setup.sh --deps development
+
       - name: Trunk Check
         uses: trunk-io/trunk-action@v1
