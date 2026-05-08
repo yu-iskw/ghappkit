@@ -22,6 +22,8 @@ def _snapshot_repo_config(value: Any) -> Any:
     if isinstance(value, BaseModel):
         return value.model_copy(deep=True)
     return copy.deepcopy(value)
+
+
 class RepoConfigLoader:
     """Load ``.github/ghappkit.yml`` via the GitHub Contents API."""
 
@@ -68,9 +70,8 @@ class RepoConfigLoader:
         )
         if text is None:
             result = self._finalize_default(model, default)
-            stored = _snapshot_repo_config(result)
-            self._maybe_store(cache_key, now, stored)
-            return _snapshot_repo_config(stored)
+            self._maybe_store(cache_key, now, result)
+            return _snapshot_repo_config(result)
 
         try:
             loaded = yaml.safe_load(text)
@@ -78,13 +79,12 @@ class RepoConfigLoader:
             raise RepoConfigError("repository configuration YAML is invalid") from exc
 
         parsed = self._validate(model, loaded)
-        stored = _snapshot_repo_config(parsed)
-        self._maybe_store(cache_key, now, stored)
-        return _snapshot_repo_config(stored)
+        self._maybe_store(cache_key, now, parsed)
+        return _snapshot_repo_config(parsed)
 
     def _maybe_store(self, key: tuple[Any, ...], now: float, value: Any) -> None:
         if self._ttl > 0:
-            self._cache[key] = (now, value)
+            self._cache[key] = (now, _snapshot_repo_config(value))
 
     def _finalize_default(
         self,
