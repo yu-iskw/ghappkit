@@ -179,3 +179,38 @@ def test_repo_config_ttl_returns_independent_copies() -> None:
         assert cfg2.enabled is True
 
     asyncio.run(run())
+
+
+def test_repo_config_default_without_model_returns_independent_dicts() -> None:
+    settings = GitHubAppSettings(
+        app_id=1,
+        webhook_secret=SecretStr("s"),
+        config_file=".github/ghappkit.yml",
+    )
+    loader = RepoConfigLoader(settings)
+    shared: dict[str, Any] = {"n": 0}
+
+    async def run() -> None:
+        ctx = WebhookContext(
+            delivery_id="d",
+            event="push",
+            action=None,
+            payload={},
+            raw_payload={},
+            installation_id=None,
+            repo=None,
+            sender=None,
+            github=_stub_github([]),
+            log=BoundLogger(logging.getLogger("ghappkit.tests.repo_cfg_default"), {}),
+            request=None,
+            _config_loader=loader,
+        )
+        first = await loader.load(ctx, model=None, file_name=None, default=shared)
+        assert isinstance(first, dict)
+        first["mut"] = 1
+        second = await loader.load(ctx, model=None, file_name=None, default=shared)
+        assert isinstance(second, dict)
+        assert "mut" not in second
+        assert shared == {"n": 0}
+
+    asyncio.run(run())

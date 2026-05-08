@@ -43,7 +43,7 @@ from ghappkit.parsing import (
     qualified_event_name,
 )
 from ghappkit.repo_config import RepoConfigLoader
-from ghappkit.routing import EventRegistry, Handler
+from ghappkit.routing import ErrorHook, EventRegistry, Handler
 from ghappkit.security import verify_github_signature
 from ghappkit.settings import GitHubAppSettings
 from ghappkit.stub_github import MissingInstallationGitHubClient
@@ -131,7 +131,7 @@ class GitHubApp:
     def on_error(self) -> Callable[[Handler], Handler]:
         """Register error hook."""
 
-        def decorator(handler: Handler) -> Handler:
+        def decorator(handler: ErrorHook) -> ErrorHook:
             self._registry.add_error(handler)
             return handler
 
@@ -222,6 +222,8 @@ class GitHubApp:
                     extra={
                         "delivery_id": headers.delivery_id,
                         "event": headers.event,
+                        "failure": "invalid_json",
+                        "webhook_phase": "parse",
                     },
                 )
                 return
@@ -231,7 +233,14 @@ class GitHubApp:
                 return
             if not handlers:
                 return
-            await self._invoke_handlers(request, headers, payload, qualified, handlers)
+            await self._invoke_handlers_guarded(
+                executor,
+                request,
+                headers,
+                payload,
+                qualified,
+                handlers,
+            )
 
         try:
             await executor.enqueue(deferred_delivery)
@@ -259,7 +268,14 @@ class GitHubApp:
             return Response(status_code=202)
 
         async def task() -> None:
-            await self._invoke_handlers(request, headers, payload, qualified, handlers)
+            await self._invoke_handlers_guarded(
+                executor,
+                request,
+                headers,
+                payload,
+                qualified,
+                handlers,
+            )
 
         try:
             await executor.enqueue(task)
@@ -288,6 +304,37 @@ class GitHubApp:
             chosen,
             inline_payload_validation=True,
         )
+
+    async def _invoke_handlers_guarded(
+        self,
+        executor: DeliveryExecutor,
+        request: Request | None,
+        headers: GitHubDeliveryHeaders,
+        payload: dict[str, Any],
+        qualified_event: str,
+        handlers: Sequence[Handler],
+    ) -> None:
+        """Run handlers; log full failures when work is deferred (GitHub already got 202)."""
+        try:
+            await self._invoke_handlers(
+                request,
+                headers,
+                payload,
+                qualified_event,
+                handlers,
+            )
+        except Exception:
+            if isinstance(executor, FastAPIBackgroundExecutor):
+                logging.getLogger("ghappkit").exception(
+                    "github_webhook_handler_delivery_failed",
+                    extra={
+                        "delivery_id": headers.delivery_id,
+                        "event": headers.event,
+                        "qualified_event": qualified_event,
+                    },
+                )
+                return
+            raise
 
     async def _invoke_handlers(
         self,
@@ -370,7 +417,7 @@ class GitHubApp:
         for hook in self._registry.error_handlers():
             await self._invoke_error_hook(hook, error)
 
-    async def _invoke_error_hook(self, hook: Handler, error: HandlerError) -> None:
+    async def _invoke_error_hook(self, hook: ErrorHook, error: HandlerError) -> None:
         try:
             await hook(error)
         except Exception:  # pylint: disable=broad-exception-caught

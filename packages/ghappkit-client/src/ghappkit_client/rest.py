@@ -106,7 +106,11 @@ class IssuesHelpers:
         path: str,
         ref: str | None = None,
     ) -> str | None:
-        """Return decoded text for a file or None when missing/not a file."""
+        """Return decoded text for a file or None when missing/not a file.
+
+        When ``ref`` is ``None``, the GitHub Contents API uses the repository's
+        default branch (the ``ref`` query parameter is omitted).
+        """
         try:
             data = await self.get_repo_content_json(owner=owner, repo=repo, path=path, ref=ref)
         except FileNotFoundError:

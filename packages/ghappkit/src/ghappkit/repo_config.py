@@ -94,7 +94,9 @@ class RepoConfigLoader:
         if default is None:
             return None
         if model is None:
-            return default
+            if isinstance(default, BaseModel):
+                return default.model_copy(deep=True)
+            return copy.deepcopy(default)
         if isinstance(default, dict):
             return model.model_validate(default)
         return default

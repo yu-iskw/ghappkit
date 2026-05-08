@@ -6,7 +6,10 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from typing import Any
 
+from ghappkit.exceptions import HandlerError
+
 Handler = Callable[..., Awaitable[Any]]
+ErrorHook = Callable[[HandlerError], Awaitable[None]]
 
 
 class EventRegistry:
@@ -15,7 +18,7 @@ class EventRegistry:
     def __init__(self) -> None:
         self._specific: dict[str, list[Handler]] = defaultdict(list)
         self._catch_all: list[Handler] = []
-        self._error_hooks: list[Handler] = []
+        self._error_hooks: list[ErrorHook] = []
 
     def add(self, names: str | Sequence[str], handler: Handler) -> None:
         """Register handler for one or more qualified names."""
@@ -27,7 +30,7 @@ class EventRegistry:
         """Register catch-all handler."""
         self._catch_all.append(handler)
 
-    def add_error(self, handler: Handler) -> None:
+    def add_error(self, handler: ErrorHook) -> None:
         """Register error hook."""
         self._error_hooks.append(handler)
 
@@ -35,6 +38,6 @@ class EventRegistry:
         """Return handlers in deterministic registration order."""
         return list(self._specific.get(qualified_event, [])) + list(self._catch_all)
 
-    def error_handlers(self) -> Iterable[Handler]:
+    def error_handlers(self) -> Iterable[ErrorHook]:
         """Registered error hooks."""
         return list(self._error_hooks)

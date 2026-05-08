@@ -19,6 +19,7 @@ from ghappkit.execution import (
     InlineExecutor,
     NoopExecutor,
 )
+from ghappkit.routing import ErrorHook
 from ghappkit.settings import GitHubAppSettings
 
 # RFC-compatible aliases (prefer Ghappkit* names for new code).
@@ -26,6 +27,7 @@ OctoflowError = GhappkitError
 
 __all__ = [
     "DeliveryExecutor",
+    "ErrorHook",
     "EventModelError",
     "FastAPIBackgroundExecutor",
     "GhappkitError",
