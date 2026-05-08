@@ -1,11 +1,11 @@
-## GraphQL Operation Card: <operation_name>
+# GraphQL Operation Card: operation_name
 
-### Source
+## Source
 
 - URL:
 - Last verified date:
 
-### Operation Contract
+## Operation Contract
 
 - Type (`query`/`mutation`):
 - Operation name:
@@ -13,24 +13,24 @@
 - Required variables:
 - Response shape:
 
-### Auth and Permissions
+## Auth and Permissions
 
 - Token type:
 - Required permission(s):
 - Notes:
 
-### Limits and Performance
+## Limits and Performance
 
 - Connection pagination requirements:
 - Complexity/rate-limit notes:
 - Field selection constraints:
 
-### Error Semantics
+## Error Semantics
 
 - Expected failure classes:
 - Retryable vs non-retryable guidance:
 
-### Client Mapping
+## Client Mapping
 
 - Preferred surface (`graphql(query, variables=...)`):
 - Optional typed wrapper candidate:

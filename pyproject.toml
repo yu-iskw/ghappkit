@@ -13,13 +13,13 @@ exclude = [
   ".github",
   ".trunk",
   "dev",
-  "src/ghappkit/tests",
+  "packages/ghappkit/src/ghappkit/tests",
   "dist",
   ".python-version",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ghappkit"]
+packages = ["packages/ghappkit/src/ghappkit"]
 
 [project]
 name = "ghappkit"
@@ -50,8 +50,19 @@ dependencies = []
 
 [project.scripts]
 
+[tool.uv.workspace]
+members = [
+  "packages/ghappkit",
+  "packages/ghappkit-github",
+  "packages/ghappkit-testing",
+]
+
 [tool.pytest.ini_options]
-testpaths = ["src/ghappkit/tests"]
+testpaths = [
+  "packages/ghappkit/src/ghappkit/tests",
+  "packages/ghappkit-github/src/ghappkit_github/tests",
+  "packages/ghappkit-testing/src/ghappkit_testing/tests",
+]
 
 [dependency-groups]
 dev = [
@@ -66,8 +77,16 @@ dev = [
 ]
 
 [tool.pyright]
-include = ["src"]
-extraPaths = ["src"]
+include = [
+  "packages/ghappkit/src",
+  "packages/ghappkit-github/src",
+  "packages/ghappkit-testing/src",
+]
+extraPaths = [
+  "packages/ghappkit/src",
+  "packages/ghappkit-github/src",
+  "packages/ghappkit-testing/src",
+]
 pythonVersion = "3.13"
 typeCheckingMode = "standard"
 venvPath = "."
@@ -76,12 +95,20 @@ reportMissingImports = true
 reportMissingTypeStubs = "warning"
 
 [tool.vulture]
-paths = ["src/ghappkit"]
+paths = [
+  "packages/ghappkit/src/ghappkit",
+  "packages/ghappkit-github/src/ghappkit_github",
+  "packages/ghappkit-testing/src/ghappkit_testing",
+]
 min_confidence = 80
 
 [tool.coverage.run]
 branch = true
-source = ["src/ghappkit"]
+source = [
+  "packages/ghappkit/src/ghappkit",
+  "packages/ghappkit-github/src/ghappkit_github",
+  "packages/ghappkit-testing/src/ghappkit_testing",
+]
 
 [tool.coverage.report]
 show_missing = true

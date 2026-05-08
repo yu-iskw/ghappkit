@@ -1,4 +1,4 @@
-## Test Vector: <name>
+# Test Vector: name
 
 - Operation:
 - Surface (`rest`/`graphql`/`request`):

@@ -1,11 +1,11 @@
-## REST Endpoint Card: <operation>
+# REST Endpoint Card: operation
 
-### Source
+## Source
 
 - URL:
 - Last verified date:
 
-### Request Contract
+## Request Contract
 
 - Method:
 - Path template:
@@ -14,27 +14,27 @@
 - Body fields:
 - Required headers:
 
-### Auth and Permissions
+## Auth and Permissions
 
 - Token type:
 - Required permission(s):
 - Notes:
 
-### Response Contract
+## Response Contract
 
 - Success statuses:
 - Success payload shape:
 - Error statuses:
 - Error payload notes:
 
-### Pagination and Rate Limits
+## Pagination and Rate Limits
 
 - Pagination style:
 - Pagination params:
 - Iteration notes:
 - Rate-limit notes:
 
-### Client Mapping
+## Client Mapping
 
 - Helper candidate:
 - Generic fallback equivalent:

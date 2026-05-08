@@ -4,7 +4,7 @@ Use this checklist at the end of every skill run to decide whether the emitted c
 
 Primary sources:
 
-- [GitHub Changelog: webhooks label](https://github.blog/changelog/label/webhooks/)
+- [GitHub Changelog](https://github.blog/changelog/)
 - [Webhook events and payloads](https://docs.github.com/en/webhooks/webhook-events-and-payloads)
 - [Best practices for using webhooks](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks)
 
