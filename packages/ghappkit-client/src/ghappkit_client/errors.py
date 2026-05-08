@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 
 class GhappkitError(Exception):
@@ -46,11 +45,3 @@ def redact_secrets(text: str) -> str:
     for pattern in _SECRET_PATTERNS:
         redacted = pattern.sub(lambda m: m.group(0)[:20] + "[REDACTED]", redacted)
     return redacted
-
-
-def safe_repr(value: Any, *, max_len: int = 200) -> str:
-    """Short, redacted repr suitable for exceptions."""
-    text = repr(value)
-    if len(text) > max_len:
-        text = text[:max_len] + "..."
-    return redact_secrets(text)

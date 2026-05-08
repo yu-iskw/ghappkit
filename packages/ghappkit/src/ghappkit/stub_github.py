@@ -7,6 +7,8 @@ from typing import Any
 
 from ghappkit_client.errors import GitHubApiError
 
+_MISSING_INSTALLATION_MSG = "GitHub API call attempted without installation credentials"
+
 
 class _Unavailable:
     """Nested helper that raises on async calls."""
@@ -14,7 +16,7 @@ class _Unavailable:
     def __getattr__(self, item: str) -> Any:
         async def _raise(*_args: Any, **_kwargs: Any) -> Any:
             raise GitHubApiError(
-                "GitHub API call attempted without installation credentials",
+                _MISSING_INSTALLATION_MSG,
                 status_code=None,
             )
 
@@ -31,6 +33,6 @@ class MissingInstallationGitHubClient:
 
     async def request(self, *_args: Any, **_kwargs: Any) -> Any:
         raise GitHubApiError(
-            "GitHub API call attempted without installation credentials",
+            _MISSING_INSTALLATION_MSG,
             status_code=None,
         )

@@ -217,13 +217,15 @@ class GitHubApp:
     ) -> None:
         installation_id = extract_installation_id(payload)
         github_client = await self._create_github_client(installation_id)
+        repo_ref = extract_repository_ref(payload)
+        sender_ref = extract_sender_ref(payload)
         structured = delivery_logger(
             logging.getLogger("ghappkit"),
             delivery_id=headers.delivery_id,
             qualified_event=qualified_event,
             installation_id=installation_id,
-            repository=self._repo_slug(payload),
-            sender=self._sender_login(payload),
+            repository=f"{repo_ref.owner}/{repo_ref.name}" if repo_ref else None,
+            sender=sender_ref.login if sender_ref else None,
         )
         bound = BoundLogger(structured.logger, structured.extra)
         typed_payload = build_payload_model(qualified_event, payload)
@@ -234,8 +236,8 @@ class GitHubApp:
             payload=typed_payload,
             raw_payload=payload,
             installation_id=installation_id,
-            repo=extract_repository_ref(payload),
-            sender=extract_sender_ref(payload),
+            repo=repo_ref,
+            sender=sender_ref,
             github=github_client,
             log=bound,
             request=request,
@@ -281,11 +283,8 @@ class GitHubApp:
         for hook in self._registry.error_handlers():
             try:
                 await hook(error)
-            except Exception as hook_exc:  # pragma: no cover - defensive
-                logging.getLogger("ghappkit").exception(
-                    "github_error_hook_failed",
-                    exc_info=hook_exc,
-                )
+            except Exception:
+                logging.getLogger("ghappkit").exception("github_error_hook_failed")
 
     async def _create_github_client(self, installation_id: int | None) -> GitHubClient:
         if self._client_factory is not None:
@@ -303,23 +302,3 @@ class GitHubApp:
             api_base_url=str(self.settings.github_api_url),
             token=token.token,
         )
-
-    def _repo_slug(self, payload: Mapping[str, Any]) -> str | None:
-        repo = payload.get("repository")
-        if not isinstance(repo, dict):
-            return None
-        owner = repo.get("owner")
-        name = repo.get("name")
-        if (
-            isinstance(owner, dict)
-            and isinstance(owner.get("login"), str)
-            and isinstance(name, str)
-        ):
-            return f"{owner['login']}/{name}"
-        return None
-
-    def _sender_login(self, payload: Mapping[str, Any]) -> str | None:
-        sender = payload.get("sender")
-        if isinstance(sender, dict) and isinstance(sender.get("login"), str):
-            return sender["login"]
-        return None

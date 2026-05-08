@@ -6,12 +6,11 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 import httpx
 
-from ghappkit_client.auth import create_app_jwt, load_private_key_pem
+from ghappkit_client.auth import create_app_jwt
 from ghappkit_client.errors import GitHubApiError, InstallationAuthError, redact_secrets
 from ghappkit_client.models import InstallationToken
 from ghappkit_client.transport import join_api_url, raise_for_github_status, send_request
@@ -53,27 +52,6 @@ class InstallationTokenProvider:
         self._skew = skew_seconds
         self._jwt_ttl = jwt_ttl_seconds
         self._cache: dict[str, TokenCacheEntry] = {}
-
-    @classmethod
-    def from_settings(
-        cls,
-        *,
-        app_id: int,
-        private_key_pem: str | None,
-        private_key_path: str | None,
-        api_base_url: str,
-        http_client: httpx.AsyncClient,
-    ) -> InstallationTokenProvider:
-        pem = load_private_key_pem(
-            secret_pem=private_key_pem,
-            path=None if private_key_path is None else Path(private_key_path),
-        )
-        return cls(
-            app_id=app_id,
-            private_key_pem=pem,
-            api_base_url=api_base_url,
-            http_client=http_client,
-        )
 
     def cache_key(
         self,

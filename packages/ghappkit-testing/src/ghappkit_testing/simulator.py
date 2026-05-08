@@ -7,14 +7,8 @@ import uuid
 from typing import Any
 
 from ghappkit.app import GitHubApp
-
-
-def split_qualified_event(name: str) -> tuple[str, str | None]:
-    """Split ``issues.opened`` into ``('issues', 'opened')`` and ``push`` into ``('push', None)``."""
-    if "." not in name:
-        return name, None
-    event, remainder = name.split(".", 1)
-    return event, remainder
+from ghappkit.parsing import split_qualified_event
+from starlette.responses import Response
 
 
 class GhappkitTestClient:
@@ -29,9 +23,9 @@ class GhappkitTestClient:
         payload: dict[str, Any],
         *,
         delivery_id: str | None = None,
-    ) -> Any:
+    ) -> Response:
         """Dispatch a synthetic webhook through the app without signature checks."""
-        event, _action = split_qualified_event(qualified_event)
+        event, _remainder = split_qualified_event(qualified_event)
         headers = {
             "X-GitHub-Event": event,
             "X-GitHub-Delivery": delivery_id or str(uuid.uuid4()),

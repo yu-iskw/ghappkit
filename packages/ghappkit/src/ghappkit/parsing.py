@@ -60,3 +60,14 @@ def qualified_event_name(event: str, payload: Mapping[str, Any]) -> str:
     if isinstance(action, str) and action:
         return f"{event}.{action}"
     return event
+
+
+def split_qualified_event(name: str) -> tuple[str, str | None]:
+    """Inverse of :func:`qualified_event_name` for header ``X-GitHub-Event`` + payload ``action``.
+
+    ``issues.opened`` → ``("issues", "opened")``; ``push`` → ``("push", None)``.
+    """
+    if "." not in name:
+        return name, None
+    event, remainder = name.split(".", 1)
+    return event, remainder

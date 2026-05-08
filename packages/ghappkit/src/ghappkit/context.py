@@ -9,7 +9,7 @@ from typing import Any, Generic, TypeVar
 
 from fastapi import Request
 from ghappkit_client.client import GitHubClient
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from ghappkit.events.models import EVENT_MODEL_BY_NAME
 from ghappkit.exceptions import EventModelError
@@ -127,5 +127,5 @@ def build_payload_model(qualified_event: str, raw: dict[str, Any]) -> Any:
         return raw
     try:
         return model_cls.model_validate(raw)
-    except Exception as exc:
+    except ValidationError as exc:
         raise EventModelError(f"failed to validate payload for {qualified_event}") from exc

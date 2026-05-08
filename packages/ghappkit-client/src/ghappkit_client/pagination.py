@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
-from urllib.parse import parse_qs, urlparse
 
 import httpx
 
@@ -52,9 +51,3 @@ def _parse_next_link(headers: Mapping[str, str]) -> str | None:
     if not match:
         return None
     return match.group(1)
-
-
-def extract_page_info(url: str) -> tuple[str, dict[str, list[str]]]:
-    """Split URL into base path and query for debugging."""
-    parsed = urlparse(url)
-    return parsed.path, parse_qs(parsed.query)

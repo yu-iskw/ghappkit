@@ -7,6 +7,8 @@ import hmac
 
 from ghappkit.exceptions import WebhookSignatureError
 
+HUB_SIGNATURE_SHA256_PREFIX = "sha256="
+
 
 def verify_github_signature(
     *,
@@ -22,7 +24,7 @@ def verify_github_signature(
     if not signature_header:
         raise WebhookSignatureError("missing X-Hub-Signature-256 header")
     header = signature_header.strip()
-    prefix = "sha256="
+    prefix = HUB_SIGNATURE_SHA256_PREFIX
     if not header.startswith(prefix):
         raise WebhookSignatureError("signature must use sha256 algorithm")
     digest_hex = header[len(prefix) :]
