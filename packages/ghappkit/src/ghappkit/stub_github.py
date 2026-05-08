@@ -13,7 +13,7 @@ _MISSING_INSTALLATION_MSG = "GitHub API call attempted without installation cred
 class _Unavailable:
     """Nested helper that raises on async calls."""
 
-    def __getattr__(self, item: str) -> Any:
+    def __getattr__(self, _name: str) -> Any:
         async def _raise(*_args: Any, **_kwargs: Any) -> Any:
             raise GitHubApiError(
                 _MISSING_INSTALLATION_MSG,
