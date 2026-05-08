@@ -89,6 +89,7 @@ paths = [
 min_confidence = 80
 
 [tool.bandit]
+skips = ["B101"]
 exclude_dirs = [
   "packages/ghappkit/src/ghappkit/tests",
   "packages/ghappkit-client/src/ghappkit_client/tests",

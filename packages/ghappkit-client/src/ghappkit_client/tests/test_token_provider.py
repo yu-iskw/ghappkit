@@ -35,7 +35,7 @@ def test_token_cache_hit() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         calls["n"] += 1
         assert "/access_tokens" in str(request.url)
-        body = {"token": "abc123", "expires_at": expires.replace(microsecond=0).isoformat()}
+        body = {"token": "abc123", "expires_at": expires.replace(microsecond=0).isoformat()}  # nosec B105
         return httpx.Response(201, json=body)
 
     transport = httpx.MockTransport(handler)
@@ -94,7 +94,7 @@ def test_concurrent_refresh_uses_single_http_call() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["n"] += 1
-        body = {"token": "solo", "expires_at": expires.isoformat()}
+        body = {"token": "solo", "expires_at": expires.isoformat()}  # nosec B105
         return httpx.Response(201, json=body)
 
     transport = httpx.MockTransport(handler)
