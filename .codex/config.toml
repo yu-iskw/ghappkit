@@ -11,3 +11,6 @@ inherit = "core"
 [shell_environment_policy.set]
 PYTHONDONTWRITEBYTECODE = "1"
 PYTHONUNBUFFERED = "1"
+
+[features]
+goals = true
