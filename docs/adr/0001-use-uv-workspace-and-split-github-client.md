@@ -34,7 +34,7 @@ The framework has at least three distinct responsibility groups:
 
 These concerns evolve at different rates. The GitHub API client may be useful outside FastAPI, while the FastAPI framework should not be forced to expose every GitHub API detail directly.
 
-uv workspaces support multi-package repositories with a shared lockfile and workspace dependencies. This makes them a good fit for developing `ghappkit`, `ghappkit-github`, and `ghappkit-testing` together while keeping their APIs and packaging boundaries explicit.
+uv workspaces support multi-package repositories with a shared lockfile and workspace dependencies. This makes them a good fit for developing `ghappkit`, `ghappkit-client`, and `ghappkit-testing` together while keeping their APIs and packaging boundaries explicit.
 
 ## Decision
 
@@ -42,7 +42,7 @@ Use a uv workspace for the repository and split the implementation into separate
 
 ```text
 packages/ghappkit          # FastAPI framework
-packages/ghappkit-github   # GitHub App auth and REST/GraphQL client
+packages/ghappkit-client   # GitHub App auth and REST/GraphQL client
 packages/ghappkit-testing  # testing and simulation utilities
 ```
 
@@ -52,14 +52,14 @@ The root `pyproject.toml` should define the workspace:
 [tool.uv.workspace]
 members = [
   "packages/ghappkit",
-  "packages/ghappkit-github",
+  "packages/ghappkit-client",
   "packages/ghappkit-testing",
   "examples/*",
 ]
 
 [tool.uv.sources]
 ghappkit = { workspace = true }
-ghappkit-github = { workspace = true }
+ghappkit-client = { workspace = true }
 ghappkit-testing = { workspace = true }
 ```
 
@@ -84,7 +84,7 @@ The packages may need different stability promises:
 | Package            | API stability expectation                            |
 | ------------------ | ---------------------------------------------------- |
 | `ghappkit`         | Stable developer-facing framework API                |
-| `ghappkit-github`  | Stable client protocol with evolving helper coverage |
+| `ghappkit-client`  | Stable client protocol with evolving helper coverage |
 | `ghappkit-testing` | Stable test ergonomics, flexible internals           |
 
 ### Preserve local development ergonomics
@@ -118,7 +118,7 @@ Keep everything under one `ghappkit` package.
 
 ### Alternative 2: Split only after v1
 
-Start with one package and extract `ghappkit-github` later.
+Start with one package and extract `ghappkit-client` later.
 
 **Rejected because:** the GitHub client boundary is architectural. Delaying the split would make public API design harder and increase migration cost.
 
@@ -143,7 +143,7 @@ ghappkit/
   logging.py
   exceptions.py
 
-ghappkit_github/
+ghappkit_client/
   auth.py
   client.py
   rest.py
@@ -166,11 +166,11 @@ The framework package should depend on the GitHub client package:
 dependencies = [
   "fastapi>=0.115",
   "pydantic>=2",
-  "ghappkit-github",
+  "ghappkit-client",
 ]
 
 [tool.uv.sources]
-ghappkit-github = { workspace = true }
+ghappkit-client = { workspace = true }
 ```
 
 The testing package should depend on both:
@@ -179,18 +179,18 @@ The testing package should depend on both:
 [project]
 dependencies = [
   "ghappkit",
-  "ghappkit-github",
+  "ghappkit-client",
   "pytest>=8",
 ]
 
 [tool.uv.sources]
 ghappkit = { workspace = true }
-ghappkit-github = { workspace = true }
+ghappkit-client = { workspace = true }
 ```
 
 ## Follow-ups
 
 1. Convert the current template package to the workspace layout.
-2. Add minimal package skeletons for `ghappkit`, `ghappkit-github`, and `ghappkit-testing`.
+2. Add minimal package skeletons for `ghappkit`, `ghappkit-client`, and `ghappkit-testing`.
 3. Add CI jobs that run lint, type checks, and tests across all workspace packages.
 4. Add an example app that imports packages through workspace dependencies.

@@ -53,14 +53,14 @@ dependencies = []
 [tool.uv.workspace]
 members = [
   "packages/ghappkit",
-  "packages/ghappkit-github",
+  "packages/ghappkit-client",
   "packages/ghappkit-testing",
 ]
 
 [tool.pytest.ini_options]
 testpaths = [
   "packages/ghappkit/src/ghappkit/tests",
-  "packages/ghappkit-github/src/ghappkit_github/tests",
+  "packages/ghappkit-client/src/ghappkit_client/tests",
   "packages/ghappkit-testing/src/ghappkit_testing/tests",
 ]
 
@@ -79,12 +79,12 @@ dev = [
 [tool.pyright]
 include = [
   "packages/ghappkit/src",
-  "packages/ghappkit-github/src",
+  "packages/ghappkit-client/src",
   "packages/ghappkit-testing/src",
 ]
 extraPaths = [
   "packages/ghappkit/src",
-  "packages/ghappkit-github/src",
+  "packages/ghappkit-client/src",
   "packages/ghappkit-testing/src",
 ]
 pythonVersion = "3.13"
@@ -97,7 +97,7 @@ reportMissingTypeStubs = "warning"
 [tool.vulture]
 paths = [
   "packages/ghappkit/src/ghappkit",
-  "packages/ghappkit-github/src/ghappkit_github",
+  "packages/ghappkit-client/src/ghappkit_client",
   "packages/ghappkit-testing/src/ghappkit_testing",
 ]
 min_confidence = 80
@@ -106,7 +106,7 @@ min_confidence = 80
 branch = true
 source = [
   "packages/ghappkit/src/ghappkit",
-  "packages/ghappkit-github/src/ghappkit_github",
+  "packages/ghappkit-client/src/ghappkit_client",
   "packages/ghappkit-testing/src/ghappkit_testing",
 ]
 

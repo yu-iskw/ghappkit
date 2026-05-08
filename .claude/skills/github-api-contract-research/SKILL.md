@@ -1,6 +1,6 @@
 ---
 name: github-api-contract-research
-description: Produce source-linked, implementation-ready contracts for GitHub REST and GraphQL operations (endpoint/operation shape, installation auth and permissions, pagination, rate limits, error semantics, helper-vs-fallback mapping, drift detection) to drive ghappkit's outbound client. Use when implementing or validating ghappkit-github REST/GraphQL methods, transport behavior, or client mapping decisions.
+description: Produce source-linked, implementation-ready contracts for GitHub REST and GraphQL operations (endpoint/operation shape, installation auth and permissions, pagination, rate limits, error semantics, helper-vs-fallback mapping, drift detection) to drive ghappkit's outbound client. Use when implementing or validating ghappkit-client REST/GraphQL methods, transport behavior, or client mapping decisions.
 compatibility: Internet access for official GitHub docs (docs.github.com/en/rest and docs.github.com/en/graphql). Read-only skill: emits a Markdown bundle in chat. Pairs with `github-webhook-event-research` (use that one for inbound webhook contracts).
 ---
 
@@ -8,7 +8,7 @@ compatibility: Internet access for official GitHub docs (docs.github.com/en/rest
 
 Use this skill when implementing or validating outbound GitHub API client code in ghappkit:
 REST helpers, GraphQL operations, installation-token permission mapping, pagination handling,
-retry/error behavior, and helper-vs-fallback placement in `ghappkit-github`.
+retry/error behavior, and helper-vs-fallback placement in `ghappkit-client`.
 Every claim must be anchored to official GitHub references so client behavior cannot drift.
 
 ## When to use

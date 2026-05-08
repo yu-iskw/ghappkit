@@ -30,7 +30,7 @@ fi
 cd "${MODULE_DIR}"
 uv run pytest -v -s --cache-clear \
 	--cov="${MODULE_DIR}/packages/ghappkit/src/ghappkit" \
-	--cov="${MODULE_DIR}/packages/ghappkit-github/src/ghappkit_github" \
+	--cov="${MODULE_DIR}/packages/ghappkit-client/src/ghappkit_client" \
 	--cov="${MODULE_DIR}/packages/ghappkit-testing/src/ghappkit_testing" \
 	--cov-report=term-missing \
 	--cov-report=xml \

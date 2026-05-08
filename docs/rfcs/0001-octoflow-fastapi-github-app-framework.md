@@ -145,9 +145,9 @@ ghappkit/
         testing.py
         exceptions.py
         types.py
-    ghappkit-github/
+    ghappkit-client/
       pyproject.toml
-      src/ghappkit_github/
+      src/ghappkit_client/
         __init__.py
         auth.py
         client.py
@@ -182,7 +182,7 @@ Package responsibilities:
 | Package            | Responsibility                                                                          | Stability target                      |
 | ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------- |
 | `ghappkit`         | FastAPI integration, event routing, contexts, config loading, webhook handling, logging | Stable v1 API                         |
-| `ghappkit-github`  | GitHub App auth, installation token cache, REST/GraphQL transport, pagination           | Stable protocol; internals can evolve |
+| `ghappkit-client`  | GitHub App auth, installation token cache, REST/GraphQL transport, pagination           | Stable protocol; internals can evolve |
 | `ghappkit-testing` | Test helpers, signed payloads, simulated delivery, fake clients                         | Stable enough for app developers      |
 | `examples/*`       | Reference applications                                                                  | Not API-stable                        |
 
@@ -340,7 +340,7 @@ async def handle_new_event(ctx: WebhookContext[dict[str, Any]]) -> None:
 
 ## GitHub API client
 
-Because the Python GitHub client ecosystem is fragmented, ghappkit should define a client protocol and ship a default `httpx`-based implementation in `ghappkit-github`.
+Because the Python GitHub client ecosystem is fragmented, ghappkit should define a client protocol and ship a default `httpx`-based implementation in `ghappkit-client`.
 
 ```python
 class GitHubClient(Protocol):
@@ -612,7 +612,7 @@ Handler failures after `202` should be logged and routed to `on_error` hooks.
 - Rename placeholder package.
 - Convert root to uv workspace.
 - Add `packages/ghappkit`.
-- Add `packages/ghappkit-github`.
+- Add `packages/ghappkit-client`.
 - Add `packages/ghappkit-testing`.
 - Keep current quality tooling: uv, Hatchling, Ruff, Pyright, Pylint, Bandit, Semgrep, Trivy, pytest, and CodeQL.
 
@@ -715,7 +715,7 @@ Handler failures after `202` should be logged and routed to `on_error` hooks.
 
 ## Open questions
 
-1. Should `ghappkit-github` initially use only `httpx`, or wrap an existing third-party client?
+1. Should `ghappkit-client` initially use only `httpx`, or wrap an existing third-party client?
 2. Should v1 require Python 3.11+ or support Python 3.10?
 3. Should event models be hand-written for v1 or generated from GitHub webhook schemas?
 4. Should `ghappkit-testing` be separate from day one or live under `ghappkit.testing` until APIs stabilize?
@@ -730,7 +730,7 @@ Implement ghappkit as a **practical FastAPI-native framework** with a uv workspa
 
 ```text
 packages/ghappkit          # FastAPI framework
-packages/ghappkit-github   # GitHub App auth and REST/GraphQL client
+packages/ghappkit-client   # GitHub App auth and REST/GraphQL client
 packages/ghappkit-testing  # testing and simulation utilities
 ```
 
