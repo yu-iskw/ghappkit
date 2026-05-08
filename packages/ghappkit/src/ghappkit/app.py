@@ -179,9 +179,65 @@ class GitHubApp:
                 body=body,
                 signature_header=headers.signature_256,
             )
-        return await self._dispatch_handlers(request, headers, body, executor)
+        inline_parse = not (
+            self.settings.webhook_ack_before_dispatch
+            and isinstance(executor, FastAPIBackgroundExecutor)
+        )
+        return await self._dispatch_handlers(
+            request,
+            headers,
+            body,
+            executor,
+            inline_payload_validation=inline_parse,
+        )
 
     async def _dispatch_handlers(
+        self,
+        request: Request | None,
+        headers: GitHubDeliveryHeaders,
+        body: bytes,
+        executor: DeliveryExecutor,
+        *,
+        inline_payload_validation: bool = True,
+    ) -> Response:
+        if inline_payload_validation:
+            return await self._dispatch_after_parse(
+                request,
+                headers,
+                body,
+                executor,
+            )
+
+        async def deferred_delivery() -> None:
+            try:
+                payload = parse_json_payload(body)
+            except PayloadParseError:
+                logging.getLogger("ghappkit").warning(
+                    "github_webhook_payload_invalid",
+                    extra={
+                        "delivery_id": headers.delivery_id,
+                        "event": headers.event,
+                    },
+                )
+                return
+            qualified = qualified_event_name(headers.event, payload)
+            handlers = self._registry.handlers_for(qualified)
+            if isinstance(executor, NoopExecutor):
+                return
+            if not handlers:
+                return
+            await self._invoke_handlers(request, headers, payload, qualified, handlers)
+
+        try:
+            await executor.enqueue(deferred_delivery)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500, detail="failed to schedule webhook handlers"
+            ) from exc
+
+        return Response(status_code=202)
+
+    async def _dispatch_after_parse(
         self,
         request: Request | None,
         headers: GitHubDeliveryHeaders,
@@ -220,7 +276,13 @@ class GitHubApp:
         """Simulate a webhook delivery without signature verification."""
         chosen = executor or InlineExecutor()
         hdrs = parse_github_delivery_headers(headers)
-        return await self._dispatch_handlers(request, hdrs, body, chosen)
+        return await self._dispatch_handlers(
+            request,
+            hdrs,
+            body,
+            chosen,
+            inline_payload_validation=True,
+        )
 
     async def _invoke_handlers(
         self,

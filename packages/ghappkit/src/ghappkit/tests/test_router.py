@@ -125,3 +125,66 @@ def test_noop_executor_skips_handlers() -> None:
     )
     assert resp.status_code == status.HTTP_202_ACCEPTED
     assert hits["n"] == 0
+
+
+def test_invalid_json_returns_400_when_parse_is_inline() -> None:
+    settings = make_test_settings(require_signature=True)
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+    )
+
+    @github.on("issues.opened")
+    async def _handler(ctx: WebhookContext[IssuesPayload, Any]) -> None:
+        assert ctx.repo is not None
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = b"{not-json"
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "delivery-bad-json",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_ack_before_dispatch_returns_202_for_invalid_json() -> None:
+    """Throughput mode: JSON validation happens after 202 (parse failures are logged only)."""
+    settings = make_test_settings(
+        require_signature=True,
+        webhook_ack_before_dispatch=True,
+    )
+    hits = {"n": 0}
+    github = GitHubApp(settings=settings, use_background_tasks=True)
+
+    @github.on("issues.opened")
+    async def _handler(ctx: WebhookContext[IssuesPayload, Any]) -> None:
+        hits["n"] += 1
+        assert ctx.repo is not None
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = b"{not-json"
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "delivery-fast-ack",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_202_ACCEPTED
+    assert hits["n"] == 0

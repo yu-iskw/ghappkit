@@ -33,6 +33,15 @@ class GitHubAppSettings(BaseSettings):
     github_web_url: AnyHttpUrl = Field(default=AnyHttpUrl("https://github.com"))
     webhook_path: str = Field(default="/webhooks")
     require_signature: bool = Field(default=True)
+    webhook_ack_before_dispatch: bool = Field(
+        default=False,
+        description=(
+            "If True and handlers run via FastAPIBackgroundExecutor, respond with 202 "
+            "immediately after signature verification; JSON parsing and handler execution "
+            "run in a background task. Invalid JSON is logged with delivery metadata but "
+            "GitHub receives 202 (no HTTP 400). Ignored with InlineExecutor / NoopExecutor."
+        ),
+    )
     config_file: str = Field(
         default=".github/ghappkit.yml",
         description="Default repository-relative configuration path",
