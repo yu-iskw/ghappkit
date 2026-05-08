@@ -2,7 +2,7 @@
 # Catches bugs, AI-generated anti-patterns, and maintains consistency.
 # RUF100 (unused noqa) is included via the RUF group — keep noqa clean.
 
-target-version = "py311"
+target-version = "py310"
 line-length = 100
 
 [lint]

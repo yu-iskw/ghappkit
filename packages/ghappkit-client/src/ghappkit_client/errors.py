@@ -43,5 +43,5 @@ def redact_secrets(text: str) -> str:
     """Remove likely secrets from error strings and logs."""
     redacted = text
     for pattern in _SECRET_PATTERNS:
-        redacted = pattern.sub(lambda m: m.group(0)[:20] + "[REDACTED]", redacted)
+        redacted = pattern.sub("[REDACTED]", redacted)
     return redacted

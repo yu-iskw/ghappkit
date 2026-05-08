@@ -6,12 +6,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-
-try:
-    from datetime import UTC
-except ImportError:  # Python 3.10
-    UTC = timezone.utc  # noqa: UP017
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -96,6 +91,7 @@ class InstallationTokenProvider:
 
         refresh_lock = await self._refresh_lock_for(key)
         async with refresh_lock:
+            now = datetime.now(UTC)
             cached = self._cache.get(key)
             if cached is not None and cached.token.expires_at - timedelta(seconds=self._skew) > now:
                 return cached.token

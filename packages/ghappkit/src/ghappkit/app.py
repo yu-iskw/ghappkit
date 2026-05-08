@@ -87,6 +87,11 @@ class GitHubApp:
         self._config_loader = RepoConfigLoader(settings, ttl_seconds=config_ttl_seconds)
         self._client_factory = github_client_factory
 
+    async def aclose(self) -> None:
+        """Close resources owned by this app (for example the default ``httpx.AsyncClient``)."""
+        if self._owns_http_client:
+            await self._http_client.aclose()
+
     def _maybe_build_token_provider(self) -> InstallationTokenProvider | None:
         try:
             key = (
@@ -363,10 +368,13 @@ class GitHubApp:
 
     async def _dispatch_error_hooks(self, error: HandlerError) -> None:
         for hook in self._registry.error_handlers():
-            try:
-                await hook(error)
-            except Exception:  # pylint: disable=broad-exception-caught
-                logging.getLogger("ghappkit").exception("github_error_hook_failed")
+            await self._invoke_error_hook(hook, error)
+
+    async def _invoke_error_hook(self, hook: Handler, error: HandlerError) -> None:
+        try:
+            await hook(error)
+        except Exception:
+            logging.getLogger("ghappkit").exception("github_error_hook_failed")
 
     async def _create_github_client(self, installation_id: int | None) -> GitHubClient:
         if self._client_factory is not None:

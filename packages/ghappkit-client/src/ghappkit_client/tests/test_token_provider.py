@@ -3,12 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
-
-try:
-    from datetime import UTC
-except ImportError:  # Python 3.10
-    UTC = timezone.utc  # noqa: UP017
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from cryptography.hazmat.primitives import serialization
