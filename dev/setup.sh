@@ -45,11 +45,11 @@ done
 cd "${MODULE_DIR}"
 
 # Install uv and dependencies
-if ! command -v uv >/dev/null 2>&1; then
+if ! command -v uv > /dev/null 2>&1; then
 	_bootstrap_py=""
-	if command -v python >/dev/null 2>&1; then
+	if command -v python > /dev/null 2>&1; then
 		_bootstrap_py="$(command -v python)"
-	elif command -v python3 >/dev/null 2>&1; then
+	elif command -v python3 > /dev/null 2>&1; then
 		_bootstrap_py="$(command -v python3)"
 	else
 		echo "Error: python is not available on PATH (needed to bootstrap uv)"

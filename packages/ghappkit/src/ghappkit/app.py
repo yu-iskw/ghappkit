@@ -230,7 +230,7 @@ class GitHubApp:
 
         try:
             await executor.enqueue(deferred_delivery)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
                 status_code=500, detail="failed to schedule webhook handlers"
             ) from exc
@@ -258,7 +258,7 @@ class GitHubApp:
 
         try:
             await executor.enqueue(task)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
                 status_code=500, detail="failed to schedule webhook handlers"
             ) from exc
@@ -336,7 +336,7 @@ class GitHubApp:
                         "duration_ms": duration_ms,
                     },
                 )
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=broad-exception-caught
                 duration_ms = int((time.perf_counter() - start) * 1000)
                 wrapped = _chain_handler_failure(
                     exc,
@@ -365,7 +365,7 @@ class GitHubApp:
         for hook in self._registry.error_handlers():
             try:
                 await hook(error)
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 logging.getLogger("ghappkit").exception("github_error_hook_failed")
 
     async def _create_github_client(self, installation_id: int | None) -> GitHubClient:

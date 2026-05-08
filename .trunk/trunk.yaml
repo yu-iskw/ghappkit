@@ -26,8 +26,10 @@ lint:
   ignore:
     - linters:
         - bandit
+        - pylint
       paths:
         - "**/tests/**"
+        - "examples/**"
   enabled:
     - actionlint@1.7.12
     - markdown-link-check@3.14.2
