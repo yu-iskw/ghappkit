@@ -30,7 +30,7 @@ class GitHubClient(Protocol):
         headers: Mapping[str, str] | None = None,
     ) -> GitHubResponse:
         """Perform a REST request relative to the GitHub API base URL."""
-        ...
+        raise NotImplementedError
 
 
 class DefaultGitHubClient:
