@@ -25,7 +25,7 @@ class GhappkitTestClient:
         delivery_id: str | None = None,
     ) -> Response:
         """Dispatch a synthetic webhook through the app without signature checks."""
-        event, _remainder = split_qualified_event(qualified_event)
+        event, _ = split_qualified_event(qualified_event)
         headers = {
             "X-GitHub-Event": event,
             "X-GitHub-Delivery": delivery_id or str(uuid.uuid4()),
