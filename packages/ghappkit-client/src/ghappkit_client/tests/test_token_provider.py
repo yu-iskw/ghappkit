@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from cryptography.hazmat.primitives import serialization
@@ -24,7 +24,7 @@ def _pem_pair() -> tuple[str, object]:
 
 def test_token_cache_hit() -> None:
     pem, _pub = _pem_pair()
-    expires = datetime.now(UTC) + timedelta(hours=1)
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
     calls = {"n": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -54,7 +54,7 @@ def test_token_cache_hit() -> None:
 
 def test_permission_specific_cache_keys() -> None:
     pem, _pub = _pem_pair()
-    expires = datetime.now(UTC) + timedelta(hours=1)
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
 
     calls = {"n": 0}
 
@@ -84,7 +84,7 @@ def test_permission_specific_cache_keys() -> None:
 def test_concurrent_refresh_uses_single_http_call() -> None:
     """Regression: thundering herd on cache miss should not duplicate token POSTs."""
     pem, _pub = _pem_pair()
-    expires = datetime.now(UTC) + timedelta(hours=1)
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
     calls = {"n": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:

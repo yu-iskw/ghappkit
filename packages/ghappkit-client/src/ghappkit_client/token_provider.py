@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -23,8 +23,8 @@ def _parse_github_datetime(raw: str) -> datetime:
         raw = raw[:-1] + "+00:00"
     dt = datetime.fromisoformat(raw)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-    return dt.astimezone(UTC)
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 @dataclass
@@ -84,14 +84,14 @@ class InstallationTokenProvider:
             permissions=permissions,
             repository_ids=repository_ids,
         )
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         cached = self._cache.get(key)
         if cached is not None and cached.token.expires_at - timedelta(seconds=self._skew) > now:
             return cached.token
 
         refresh_lock = await self._refresh_lock_for(key)
         async with refresh_lock:
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             cached = self._cache.get(key)
             if cached is not None and cached.token.expires_at - timedelta(seconds=self._skew) > now:
                 return cached.token

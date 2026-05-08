@@ -373,7 +373,7 @@ class GitHubApp:
     async def _invoke_error_hook(self, hook: Handler, error: HandlerError) -> None:
         try:
             await hook(error)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logging.getLogger("ghappkit").exception("github_error_hook_failed")
 
     async def _create_github_client(self, installation_id: int | None) -> GitHubClient:
