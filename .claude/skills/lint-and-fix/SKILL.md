@@ -1,6 +1,6 @@
 ---
 name: lint-and-fix
-description: Run linters and fix violations, formatting errors, or style mismatches using Trunk, run Vulture dead-code checks (`make vulture`), and fall back to `npx --yes @trunkio/launcher` when `trunk` is not on PATH. Use when code quality checks fail, before submitting PRs, or to repair "broken" linting states.
+description: Run linters and fix violations using Trunk, run Vulture (`make vulture`), fall back to `npx --yes @trunkio/launcher` when `trunk` is missing, and use a Python-first Trunk scope when networks or sandboxes block full `check -a`. Use when code quality checks fail, before PRs, or to repair broken linting states.
 ---
 
 # Lint and Fix Loop: Trunk
@@ -28,20 +28,30 @@ On a **first** run, Trunk may spend a long time downloading its CLI and hermetic
 
 If an orchestration timeout is unavoidable, say explicitly that **full Trunk verification did not finish** rather than assuming the tree is clean.
 
+### Network, TLS, and sandbox limits
+
+Some Trunk linters **reach the public internet** (for example **Semgrep** fetching rules from `semgrep.dev`, **markdown-link-check** hitting URLs in docs, or **hermetic tool downloads** such as Go). If errors are clearly **TLS handshake failures**, **connection resets**, **timeouts**, or **HTTP errors to third-party hosts**, treat that as **environment or network policy**, not as a defect in your Python code—**do not** “fix” the repository by editing unrelated markdown links or disabling linters unless the user explicitly asked for that.
+
+When outbound access is uncertain or **`check -a` is too slow or too noisy**:
+
+1. Run a **Python-first** slice first, for example: `npx --yes @trunkio/launcher check --ci --no-progress --filter ruff,pyright packages/` (narrow paths further if you only touched one package).
+2. Still run **`make vulture`** and **`make test`** when behavior or types changed.
+3. Widen to **`check -a`** (full CI parity) only when the environment is trusted to reach all external endpoints and you have enough wall time.
+
 ### `uv` / Vulture side effects
 
 **`make vulture`** runs **`uv run vulture`**. `uv` may **recreate `.venv`** or switch the interpreter when it reconciles the version in `.python-version` with what is installed—treat that as normal after dependency or Python changes, not as a Vulture bug.
 
 ## Loop Logic
 
-1. **Identify**: Run `make lint` (which executes `trunk check -a`) to list current violations. If `trunk` is unavailable, use **`npx --yes @trunkio/launcher check -a`** instead (after **`npx --yes @trunkio/launcher install`** on a cold machine). In non-interactive shells, prefer **`check -a --ci --no-progress`** for clearer, log-friendly output.
+1. **Identify**: Run `make lint` (which executes `trunk check -a`) to list current violations. If `trunk` is unavailable, use **`npx --yes @trunkio/launcher`** (after **`install`** on a cold machine). In **sandboxes, agents, or flaky networks**, prefer a **Python-first** check (see **Network, TLS, and sandbox limits**) before relying on **`check -a`**. In non-interactive shells, always add **`--ci --no-progress`** to `check`.
 2. **Analyze**: Examine the output from Trunk, focusing on the file path, line number, and error message.
 3. **Fix**:
    - For formatting issues, run `make format` (which executes `trunk fmt -a`), or **`npx --yes @trunkio/launcher fmt -a`** when `trunk` is not on `PATH`.
    - For linting violations, apply the minimum necessary change to the source code to resolve the error.
    - Resolve findings by changing code, types, imports, or structure—not with suppressions (see **Constraints**).
 4. **Verify**:
-   - Re-run `make lint` (or `npx --yes @trunkio/launcher check -a --ci --no-progress` if `trunk` is missing).
+   - Re-run `make lint`, or the same **npx** command with **`check -a --ci --no-progress`** if `trunk` is missing **and** full CI parity is appropriate. Otherwise re-run the **narrow** `check` you used in **Identify** (for example **`--filter ruff,pyright`** on **`packages/`**).
    - Run **`make vulture`** (`uv run vulture`; configuration under `pyproject.toml` `[tool.vulture]`). Treat unused-code findings like other fixable issues: remove dead code or refactor so symbols are used; if a hit is a false positive (dynamic use, framework magic), adjust `[tool.vulture]` **only** when the user asked for that policy change—otherwise stop and ask a human.
    - For type-only triage, `uv run pyright` also reads `pyproject.toml` `[tool.pyright]`; prefer Trunk for CI parity.
    - When the change affects **executable code** (behavior, types, imports beyond formatting), run **`make test`** after lint passes (pytest-cov; see **Resources**). Same entrypoint as CI: `dev/test_python.sh`. Formatting- or comment-only edits may stop after `make lint` and `make vulture`.
@@ -57,7 +67,7 @@ If an orchestration timeout is unavoidable, say explicitly that **full Trunk ver
 
 ## Termination Criteria
 
-- No more errors reported by `make lint` (or the `npx --yes @trunkio/launcher check -a --ci --no-progress` equivalent once Trunk has finished).
+- No more errors from the **Trunk scope you chose** (`make lint` / full **`check -a`**, or the **narrow** **`ruff`/`pyright`** path once Trunk has finished)—and if you intentionally used a narrow check because of the environment, say so explicitly instead of claiming full CI parity.
 - No unresolved issues from **`make vulture`** that the agent can fix without policy changes or guesswork.
 - When fixes touched executable code: **`make test`** passes.
 - Reached max iteration limit (default: 5).
@@ -82,6 +92,12 @@ If an orchestration timeout is unavoidable, say explicitly that **full Trunk ver
 1. `make lint` passes.
 2. `make vulture` reports an unused function; agent removes it or wires it into used code paths.
 3. `make vulture` is clean (or remaining items are escalated).
+
+### Scenario: Sandbox or flaky network (Semgrep, link check, or tool download errors)
+
+1. `npx --yes @trunkio/launcher install` succeeds, but **`check -a`** fails or stalls on **Semgrep**, **markdown-link-check**, or **downloading a hermetic compiler**—errors mention **HTTPS**, **SSL**, or **timeouts** to hosts outside the repo.
+2. Agent runs **`npx --yes @trunkio/launcher check --ci --no-progress --filter ruff,pyright packages/`** (or paths touched), then **`make vulture`** and **`make test`** as needed.
+3. Agent reports **environment limits** for full `check -a` rather than changing unrelated docs or suppressing linters to “go green.”
 
 ## Resources
 
