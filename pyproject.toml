@@ -13,16 +13,16 @@ exclude = [
   ".github",
   ".trunk",
   "dev",
-  "src/your_package/tests",
+  "src/ghappkit/tests",
   "dist",
   ".python-version",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/your_package"]
+packages = ["src/ghappkit"]
 
 [project]
-name = "your-package"
+name = "ghappkit"
 version = "0.1.0"
 authors = [{ name = "yu-iskw" }]
 readme = "README.md"
@@ -45,13 +45,13 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
-description = "A dbt artifacts parser in python"
+description = "FastAPI-native framework for production-grade GitHub Apps."
 dependencies = []
 
 [project.scripts]
 
 [tool.pytest.ini_options]
-testpaths = ["src/your_package/tests"]
+testpaths = ["src/ghappkit/tests"]
 
 [dependency-groups]
 dev = [
@@ -76,12 +76,12 @@ reportMissingImports = true
 reportMissingTypeStubs = "warning"
 
 [tool.vulture]
-paths = ["src/your_package"]
+paths = ["src/ghappkit"]
 min_confidence = 80
 
 [tool.coverage.run]
 branch = true
-source = ["src/your_package"]
+source = ["src/ghappkit"]
 
 [tool.coverage.report]
 show_missing = true
