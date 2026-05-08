@@ -28,12 +28,14 @@ lint:
         - bandit
         - pylint
       paths:
-        - '**/tests/**'
-        - 'examples/**'
+        - packages/ghappkit/src/ghappkit/tests
+        - packages/ghappkit-client/src/ghappkit_client/tests
+        - packages/ghappkit-testing/src/ghappkit_testing/tests
+        - examples
     - linters:
         - shfmt
       paths:
-        - 'dev/setup.sh'
+        - dev/setup.sh
   enabled:
     - actionlint@1.7.12
     - markdown-link-check@3.14.2
