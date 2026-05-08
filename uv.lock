@@ -8,6 +8,14 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 
+[manifest]
+members = [
+    "ghappkit",
+    "ghappkit-client",
+    "ghappkit-testing",
+    "ghappkit-workspace",
+]
+
 [[package]]
 name = "astroid"
 version = "4.0.4"
@@ -300,7 +308,22 @@ wheels = [
 [[package]]
 name = "ghappkit"
 version = "0.1.0"
-source = { editable = "." }
+source = { editable = "packages/ghappkit" }
+
+[[package]]
+name = "ghappkit-client"
+version = "0.1.0"
+source = { editable = "packages/ghappkit-client" }
+
+[[package]]
+name = "ghappkit-testing"
+version = "0.1.0"
+source = { editable = "packages/ghappkit-testing" }
+
+[[package]]
+name = "ghappkit-workspace"
+version = "0.1.0"
+source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [

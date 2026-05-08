@@ -1,28 +1,5 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build]
-exclude = [
-  ".git",
-  ".venv",
-  ".mypy_cache",
-  ".ruff_cache",
-  ".pyright",
-  ".pytest_cache",
-  ".github",
-  ".trunk",
-  "dev",
-  "packages/ghappkit/src/ghappkit/tests",
-  "dist",
-  ".python-version",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["packages/ghappkit/src/ghappkit"]
-
 [project]
-name = "ghappkit"
+name = "ghappkit-workspace"
 version = "0.1.0"
 authors = [{ name = "yu-iskw" }]
 readme = "README.md"
@@ -48,7 +25,8 @@ classifiers = [
 description = "FastAPI-native framework for production-grade GitHub Apps."
 dependencies = []
 
-[project.scripts]
+[tool.uv]
+package = false
 
 [tool.uv.workspace]
 members = [

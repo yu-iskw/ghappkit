@@ -18,6 +18,14 @@ set -Eeuo pipefail
 SCRIPT_FILE="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "${SCRIPT_FILE}")"
 MODULE_DIR="$(dirname "${SCRIPT_DIR}")"
+if command -v python >/dev/null 2>&1; then
+	PYTHON_BIN="$(command -v python)"
+elif command -v python3 >/dev/null 2>&1; then
+	PYTHON_BIN="$(command -v python3)"
+else
+	echo "Error: python is not available on PATH"
+	exit 1
+fi
 
 # Arguments
 deps="production"
@@ -39,14 +47,16 @@ done
 cd "${MODULE_DIR}"
 
 # Install uv and dependencies
-pip install --force-reinstall -r "${MODULE_DIR}/requirements.setup.txt"
+if ! command -v uv >/dev/null 2>&1; then
+	"${PYTHON_BIN}" -m pip install --force-reinstall -r "${MODULE_DIR}/requirements.setup.txt"
+fi
 
 # Create virtual environment
-uv venv
+uv venv --allow-existing --python "${PYTHON_BIN}"
 
 # Install package and dependencies
 if [[ ${deps} == "production" ]]; then
-	uv sync
+	uv sync --python "${PYTHON_BIN}" --all-packages --no-dev
 else
-	uv sync --all-extras
+	uv sync --python "${PYTHON_BIN}" --all-packages --all-extras
 fi

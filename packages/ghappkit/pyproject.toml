@@ -8,6 +8,26 @@ packages = ["src/ghappkit"]
 [project]
 name = "ghappkit"
 version = "0.1.0"
+authors = [{ name = "yu-iskw" }]
+readme = { text = "FastAPI-native framework for building production-grade GitHub Apps in Python.", content-type = "text/markdown" }
+license = { text = "Apache-2.0" }
 description = "FastAPI-native framework for production-grade GitHub Apps."
 requires-python = ">=3.10.0"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: System Administrators",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
 dependencies = []

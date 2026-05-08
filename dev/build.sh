@@ -17,4 +17,4 @@
 set -Eo pipefail
 
 # Build the package
-uv build --verbose
+uv build --all-packages --verbose
