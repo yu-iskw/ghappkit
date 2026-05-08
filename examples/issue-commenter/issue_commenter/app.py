@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI
 from ghappkit import GitHubApp, GitHubAppSettings
@@ -26,7 +26,7 @@ def create_app() -> FastAPI:
     @github.on("issues.opened")
     async def on_issue_opened(ctx: WebhookContext[IssuesPayload, Any]) -> None:
         payload = ctx.payload
-        config = await ctx.config(AppConfig)
+        config = cast(AppConfig | None, await ctx.config(AppConfig))
         if config is not None and not config.enabled:
             ctx.log.info("issue_commenter_disabled")
             return

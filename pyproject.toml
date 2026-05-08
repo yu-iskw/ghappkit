@@ -88,6 +88,13 @@ paths = [
 ]
 min_confidence = 80
 
+[tool.bandit]
+exclude_dirs = [
+  "packages/ghappkit/src/ghappkit/tests",
+  "packages/ghappkit-client/src/ghappkit_client/tests",
+  "packages/ghappkit-testing/src/ghappkit_testing/tests",
+]
+
 [tool.coverage.run]
 branch = true
 source = [
