@@ -23,6 +23,11 @@ lint:
     - isort
     - black
     - mypy
+  ignore:
+    - linters:
+        - bandit
+      paths:
+        - "**/tests/**"
   enabled:
     - actionlint@1.7.12
     - markdown-link-check@3.14.2

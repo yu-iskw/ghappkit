@@ -19,7 +19,7 @@ def test_simulator_delivers_event() -> None:
     settings = make_test_settings()
     hits = {"n": 0}
 
-    async def factory(installation_id: int | None) -> FakeGitHubClient:
+    async def factory(_installation_id: int | None) -> FakeGitHubClient:
         return FakeGitHubClient()
 
     app = GitHubApp(
@@ -30,7 +30,7 @@ def test_simulator_delivers_event() -> None:
     )
 
     @app.on("issues.opened")
-    async def on_issue(_ctx: WebhookContext[Any, Any]) -> None:
+    async def on_issue(ctx: WebhookContext[Any, Any]) -> None:  # pylint: disable=unused-argument
         hits["n"] += 1
 
     async def run() -> None:

@@ -4,10 +4,10 @@ FastAPI-native framework for building production-grade GitHub Apps in Python.
 
 ## Workspace packages
 
-| Package | Purpose |
-| ------- | ------- |
-| [`packages/ghappkit`](packages/ghappkit/) | FastAPI router, webhooks, contexts, repo config, execution |
-| [`packages/ghappkit-client`](packages/ghappkit-client/) | GitHub App JWT, installation tokens, REST/GraphQL helpers |
+| Package                                                   | Purpose                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------ |
+| [`packages/ghappkit`](packages/ghappkit/)                 | FastAPI router, webhooks, contexts, repo config, execution   |
+| [`packages/ghappkit-client`](packages/ghappkit-client/)   | GitHub App JWT, installation tokens, REST/GraphQL helpers    |
 | [`packages/ghappkit-testing`](packages/ghappkit-testing/) | Signed payloads, fixtures, fake client, `GhappkitTestClient` |
 
 Examples live under [`examples/`](examples/). Authoritative design notes: [RFC 0001](docs/rfcs/0001-octoflow-fastapi-github-app-framework.md), [ADR 0001](docs/adr/0001-use-uv-workspace-and-split-github-client.md).

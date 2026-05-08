@@ -37,7 +37,7 @@ def _make_client(*, require_signature: bool = True) -> tuple[TestClient, GitHubA
 
 
 def test_unauthorized_on_missing_signature() -> None:
-    client, _github = _make_client(require_signature=True)
+    client, _ = _make_client(require_signature=True)
     body = json.dumps(issues_opened()).encode("utf-8")
     response = client.post(
         "/gh/webhooks",
@@ -54,7 +54,7 @@ def test_unauthorized_on_missing_signature() -> None:
 def test_success_path_with_signature_and_fake_client() -> None:
     settings = make_test_settings(require_signature=True)
 
-    async def client_factory(installation_id: int | None) -> FakeGitHubClient:
+    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
         return FakeGitHubClient()
 
     github = GitHubApp(
@@ -105,7 +105,7 @@ def test_noop_executor_skips_handlers() -> None:
     hits = {"n": 0}
 
     @github.on("issues.opened")
-    async def handler(_ctx: WebhookContext[Any, Any]) -> None:
+    async def handler(ctx: WebhookContext[Any, Any]) -> None:  # pylint: disable=unused-argument
         hits["n"] += 1
 
     api = FastAPI()
