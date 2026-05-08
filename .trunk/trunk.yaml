@@ -30,6 +30,10 @@ lint:
       paths:
         - "**/tests/**"
         - "examples/**"
+    - linters:
+        - shfmt
+      paths:
+        - "dev/setup.sh"
   enabled:
     - actionlint@1.7.12
     - markdown-link-check@3.14.2

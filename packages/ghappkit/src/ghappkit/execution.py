@@ -25,7 +25,7 @@ class InlineExecutor:
 class NoopExecutor:
     """Accept deliveries without invoking handlers."""
 
-    async def enqueue(self, task: Callable[[], Awaitable[None]]) -> None:  # noqa: ARG002
+    async def enqueue(self, task: Callable[[], Awaitable[None]]) -> None:  # noqa: ARG002  # pylint: disable=unused-argument
         return
 
 

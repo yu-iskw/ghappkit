@@ -108,7 +108,7 @@ class FakeGitHubClient:
         params: dict[str, Any] | None = None,
         json: Any | None = None,
         headers: dict[str, str] | None = None,
-    ) -> GitHubResponse:
+    ) -> GitHubResponse:  # pylint: disable=unused-argument
         self.record(method.upper(), path, json=json)
         return GitHubResponse(status_code=200, headers={}, json_data={"ok": True}, text="{}")
 
