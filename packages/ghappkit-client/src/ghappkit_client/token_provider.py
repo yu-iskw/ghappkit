@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
@@ -52,6 +53,8 @@ class InstallationTokenProvider:
         self._skew = skew_seconds
         self._jwt_ttl = jwt_ttl_seconds
         self._cache: dict[str, TokenCacheEntry] = {}
+        self._locks_guard = asyncio.Lock()
+        self._refresh_locks: dict[str, asyncio.Lock] = {}
 
     def cache_key(
         self,
@@ -86,13 +89,27 @@ class InstallationTokenProvider:
         if cached is not None and cached.token.expires_at - timedelta(seconds=self._skew) > now:
             return cached.token
 
-        token = await self._fetch_token(
-            installation_id,
-            permissions=permissions,
-            repository_ids=repository_ids,
-        )
-        self._cache[key] = TokenCacheEntry(token=token, cache_key=key)
-        return token
+        refresh_lock = await self._refresh_lock_for(key)
+        async with refresh_lock:
+            cached = self._cache.get(key)
+            if cached is not None and cached.token.expires_at - timedelta(seconds=self._skew) > now:
+                return cached.token
+            token = await self._fetch_token(
+                installation_id,
+                permissions=permissions,
+                repository_ids=repository_ids,
+            )
+            self._cache[key] = TokenCacheEntry(token=token, cache_key=key)
+            return token
+
+    async def _refresh_lock_for(self, cache_key: str) -> asyncio.Lock:
+        """Serialize refresh for one cache key; other keys refresh concurrently."""
+        async with self._locks_guard:
+            lock = self._refresh_locks.get(cache_key)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._refresh_locks[cache_key] = lock
+            return lock
 
     async def _fetch_token(
         self,

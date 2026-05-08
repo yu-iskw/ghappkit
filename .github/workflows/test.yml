@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/test.yml
       - dev/**
+      - examples/**
       - packages/**
       - pyproject.toml
       - ruff.toml

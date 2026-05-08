@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -48,8 +49,6 @@ def test_token_cache_hit() -> None:
         assert first.token == second.token
         assert calls["n"] == 1
 
-    import asyncio
-
     asyncio.run(run())
 
 
@@ -79,6 +78,35 @@ def test_permission_specific_cache_keys() -> None:
         assert a.token != b.token
         assert calls["n"] == 2
 
-    import asyncio
+    asyncio.run(run())
+
+
+def test_concurrent_refresh_uses_single_http_call() -> None:
+    """Regression: thundering herd on cache miss should not duplicate token POSTs."""
+    pem, _pub = _pem_pair()
+    expires = datetime.now(UTC) + timedelta(hours=1)
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        body = {"token": "solo", "expires_at": expires.isoformat()}
+        return httpx.Response(201, json=body)
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.AsyncClient(transport=transport)
+    provider = InstallationTokenProvider(
+        app_id=7,
+        private_key_pem=pem,
+        api_base_url="https://api.github.com",
+        http_client=client,
+        skew_seconds=120,
+    )
+
+    async def run() -> None:
+        await asyncio.gather(
+            provider.get_token(42),
+            provider.get_token(42),
+        )
+        assert calls["n"] == 1
 
     asyncio.run(run())

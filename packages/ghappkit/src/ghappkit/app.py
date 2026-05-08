@@ -25,6 +25,7 @@ from ghappkit.context import (
 from ghappkit.delivery_logging import delivery_logger
 from ghappkit.exceptions import (
     HandlerError,
+    HandlerExecutionError,
     PayloadParseError,
     WebhookHeaderError,
     WebhookSignatureError,
@@ -46,6 +47,20 @@ from ghappkit.routing import EventRegistry, Handler
 from ghappkit.security import verify_github_signature
 from ghappkit.settings import GitHubAppSettings
 from ghappkit.stub_github import MissingInstallationGitHubClient
+
+
+def _chain_handler_failure(
+    exc: BaseException,
+    *,
+    handler_name: str,
+    qualified_event: str,
+) -> HandlerExecutionError:
+    """Wrap a user handler failure with a stable type and exception chain."""
+    err = HandlerExecutionError(
+        f"handler {handler_name} failed for {qualified_event}: {type(exc).__name__}",
+    )
+    err.__cause__ = exc
+    return err
 
 
 class GitHubApp:
@@ -261,6 +276,11 @@ class GitHubApp:
                 )
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start) * 1000)
+                wrapped = _chain_handler_failure(
+                    exc,
+                    handler_name=handler_name,
+                    qualified_event=qualified_event,
+                )
                 ctx.log.warning(
                     "github_handler_failed",
                     extra={
@@ -272,7 +292,7 @@ class GitHubApp:
                     },
                 )
                 error = HandlerError(
-                    exc=exc,
+                    exc=wrapped,
                     context=ctx,
                     handler=handler,
                     qualified_event=qualified_event,

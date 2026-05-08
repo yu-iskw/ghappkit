@@ -7,6 +7,7 @@ from ghappkit.context import RepositoryRef, SenderRef, WebhookContext
 from ghappkit.exceptions import (
     EventModelError,
     HandlerError,
+    HandlerExecutionError,
     PayloadParseError,
     RepoConfigError,
     WebhookHeaderError,
@@ -31,6 +32,7 @@ __all__ = [
     "GitHubApp",
     "GitHubAppSettings",
     "HandlerError",
+    "HandlerExecutionError",
     "InlineExecutor",
     "NoopExecutor",
     "OctoflowError",
