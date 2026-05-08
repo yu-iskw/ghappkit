@@ -43,6 +43,23 @@ def _stub_github(responses: list[str | None]) -> Any:
     return SimpleNamespace(rest=SimpleNamespace(issues=_StubIssues(responses)))
 
 
+class _StubIssuesDecodeFailure:
+    async def fetch_repo_text_file(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: str | None = None,
+    ) -> str | None:
+        del owner, repo, path, ref
+        raise ValueError("repository file content could not be base64-decoded")
+
+
+def _stub_github_decode_failure() -> Any:
+    return SimpleNamespace(rest=SimpleNamespace(issues=_StubIssuesDecodeFailure()))
+
+
 def test_repo_config_loads_yaml_model() -> None:
     settings = GitHubAppSettings(
         app_id=1,
@@ -105,6 +122,37 @@ def test_repo_config_invalid_yaml_raises() -> None:
             _config_loader=loader,
         )
         with pytest.raises(RepoConfigError):
+            await loader.load(ctx, model=SampleCfg, file_name=None, default=None)
+
+    asyncio.run(run())
+
+
+def test_repo_config_decode_failure_raises_repo_config_error() -> None:
+    settings = GitHubAppSettings(app_id=1, webhook_secret=SecretStr("s"))
+    loader = RepoConfigLoader(settings)
+
+    async def run() -> None:
+        ctx = WebhookContext(
+            delivery_id="d",
+            event="push",
+            action=None,
+            payload={},
+            raw_payload={
+                "repository": {
+                    "name": "demo",
+                    "owner": {"login": "acme"},
+                    "default_branch": "main",
+                },
+            },
+            installation_id=1,
+            repo=RepositoryRef(owner="acme", name="demo"),
+            sender=None,
+            github=_stub_github_decode_failure(),
+            log=BoundLogger(logging.getLogger("ghappkit.tests.repo_cfg_decode"), {}),
+            request=None,
+            _config_loader=loader,
+        )
+        with pytest.raises(RepoConfigError, match="could not be read"):
             await loader.load(ctx, model=SampleCfg, file_name=None, default=None)
 
     asyncio.run(run())
