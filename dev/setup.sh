@@ -18,12 +18,18 @@ set -Eeuo pipefail
 SCRIPT_FILE="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "${SCRIPT_FILE}")"
 MODULE_DIR="$(dirname "${SCRIPT_DIR}")"
-if command -v python >/dev/null 2>&1; then
-	PYTHON_BIN="$(command -v python)"
-elif command -v python3 >/dev/null 2>&1; then
-	PYTHON_BIN="$(command -v python3)"
-else
-	echo "Error: python is not available on PATH"
+# Allow CI (or callers) to pin the interpreter, e.g. actions/setup-python outputs.
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+	if command -v python >/dev/null 2>&1; then
+		PYTHON_BIN="$(command -v python)"
+	elif command -v python3 >/dev/null 2>&1; then
+		PYTHON_BIN="$(command -v python3)"
+	else
+		echo "Error: python is not available on PATH (set PYTHON_BIN to override)"
+		exit 1
+	fi
+elif [[ ! -x "${PYTHON_BIN}" ]]; then
+	echo "Error: PYTHON_BIN is not executable: ${PYTHON_BIN}"
 	exit 1
 fi
 
@@ -58,5 +64,5 @@ uv venv --allow-existing --python "${PYTHON_BIN}"
 if [[ ${deps} == "production" ]]; then
 	uv sync --python "${PYTHON_BIN}" --all-packages --no-dev
 else
-	uv sync --python "${PYTHON_BIN}" --all-packages --all-extras
+	uv sync --python "${PYTHON_BIN}" --all-packages --all-extras --group dev
 fi
