@@ -179,12 +179,12 @@ octoflow/
 
 Package responsibilities:
 
-| Package | Responsibility | Stability target |
-|---|---|---|
-| `octoflow` | FastAPI integration, event routing, contexts, config loading, webhook handling, logging | Stable v1 API |
-| `octoflow-github` | GitHub App auth, installation token cache, REST/GraphQL transport, pagination | Stable protocol; internals can evolve |
-| `octoflow-testing` | Test helpers, signed payloads, simulated delivery, fake clients | Stable enough for app developers |
-| `examples/*` | Reference applications | Not API-stable |
+| Package            | Responsibility                                                                          | Stability target                      |
+| ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------- |
+| `octoflow`         | FastAPI integration, event routing, contexts, config loading, webhook handling, logging | Stable v1 API                         |
+| `octoflow-github`  | GitHub App auth, installation token cache, REST/GraphQL transport, pagination           | Stable protocol; internals can evolve |
+| `octoflow-testing` | Test helpers, signed payloads, simulated delivery, fake clients                         | Stable enough for app developers      |
+| `examples/*`       | Reference applications                                                                  | Not API-stable                        |
 
 ## Core architecture
 
@@ -285,12 +285,12 @@ else:
 
 Examples:
 
-| Header event | Payload action | octoflow name |
-|---|---|---|
-| `issues` | `opened` | `issues.opened` |
-| `pull_request` | `closed` | `pull_request.closed` |
-| `push` | none | `push` |
-| `workflow_run` | `completed` | `workflow_run.completed` |
+| Header event   | Payload action | octoflow name            |
+| -------------- | -------------- | ------------------------ |
+| `issues`       | `opened`       | `issues.opened`          |
+| `pull_request` | `closed`       | `pull_request.closed`    |
+| `push`         | none           | `push`                   |
+| `workflow_run` | `completed`    | `workflow_run.completed` |
 
 ## Typed context
 
@@ -452,11 +452,11 @@ receive webhook -> verify -> schedule background task -> return 202
 
 Built-in executors:
 
-| Executor | Purpose |
-|---|---|
-| `InlineExecutor` | Tests and local debugging |
-| `FastAPIBackgroundExecutor` | Default v1 behavior |
-| `NoopExecutor` | Contract tests and dry runs |
+| Executor                    | Purpose                     |
+| --------------------------- | --------------------------- |
+| `InlineExecutor`            | Tests and local debugging   |
+| `FastAPIBackgroundExecutor` | Default v1 behavior         |
+| `NoopExecutor`              | Contract tests and dry runs |
 
 Future executor integrations should live outside the core package or as examples:
 
@@ -558,22 +558,22 @@ Should-have:
 
 Start with high-value events:
 
-| Event | Typed context |
-|---|---|
-| `issues.opened` | yes |
-| `issues.edited` | yes |
-| `issues.closed` | yes |
-| `issue_comment.created` | yes |
-| `pull_request.opened` | yes |
-| `pull_request.synchronize` | yes |
-| `pull_request.closed` | yes |
-| `push` | yes |
-| `check_suite.completed` | yes |
-| `check_run.completed` | yes |
-| `workflow_run.completed` | yes |
-| `installation.created` | yes |
-| `installation.deleted` | yes |
-| `installation_repositories.added` | yes |
+| Event                             | Typed context |
+| --------------------------------- | ------------- |
+| `issues.opened`                   | yes           |
+| `issues.edited`                   | yes           |
+| `issues.closed`                   | yes           |
+| `issue_comment.created`           | yes           |
+| `pull_request.opened`             | yes           |
+| `pull_request.synchronize`        | yes           |
+| `pull_request.closed`             | yes           |
+| `push`                            | yes           |
+| `check_suite.completed`           | yes           |
+| `check_run.completed`             | yes           |
+| `workflow_run.completed`          | yes           |
+| `installation.created`            | yes           |
+| `installation.deleted`            | yes           |
+| `installation_repositories.added` | yes           |
 
 ## Error handling
 
@@ -593,15 +593,15 @@ class HandlerExecutionError(OctoflowError): ...
 
 HTTP response behavior:
 
-| Failure | Response |
-|---|---|
-| Missing signature | `401` |
-| Invalid signature | `401` |
-| Missing event header | `400` |
-| Invalid JSON | `400` |
-| No matching handler | `202` |
-| Handler scheduled | `202` |
-| Internal scheduling failure | `500` |
+| Failure                     | Response |
+| --------------------------- | -------- |
+| Missing signature           | `401`    |
+| Invalid signature           | `401`    |
+| Missing event header        | `400`    |
+| Invalid JSON                | `400`    |
+| No matching handler         | `202`    |
+| Handler scheduled           | `202`    |
+| Internal scheduling failure | `500`    |
 
 Handler failures after `202` should be logged and routed to `on_error` hooks.
 
@@ -689,29 +689,29 @@ Handler failures after `202` should be logged and routed to `on_error` hooks.
 
 ## Milestone acceptance criteria
 
-| Milestone | Acceptance criteria |
-|---|---|
-| M0 repo setup | `uv sync`, package tests, lint, and type checks run successfully |
+| Milestone           | Acceptance criteria                                                              |
+| ------------------- | -------------------------------------------------------------------------------- |
+| M0 repo setup       | `uv sync`, package tests, lint, and type checks run successfully                 |
 | M1 webhook receiver | Valid GitHub-style signed payload returns `202`; invalid signature returns `401` |
-| M2 dispatch | `@github.on("issues.opened")` receives a context in tests |
-| M3 auth/client | Handler can call GitHub API through installation-scoped client |
-| M4 config | Handler can load and validate `.github/octoflow.yml` |
-| M5 background | Webhook returns before handler completion with FastAPI background task |
-| M6 testing | App behavior can be tested without real GitHub network calls |
-| M7 docs | New developer can build the issue-commenter example in under one hour |
+| M2 dispatch         | `@github.on("issues.opened")` receives a context in tests                        |
+| M3 auth/client      | Handler can call GitHub API through installation-scoped client                   |
+| M4 config           | Handler can load and validate `.github/octoflow.yml`                             |
+| M5 background       | Webhook returns before handler completion with FastAPI background task           |
+| M6 testing          | App behavior can be tested without real GitHub network calls                     |
+| M7 docs             | New developer can build the issue-commenter example in under one hour            |
 
 ## Architectural trade-offs
 
-| Decision | Choice | Why | Trade-off |
-|---|---|---|---|
-| Framework style | FastAPI-native decorators | Best fit for Python users | Less direct Probot compatibility |
-| GitHub client | Separate package plus protocol | Avoids coupling framework to one client implementation | More initial design work |
-| Typing | Pydantic for common events, raw fallback | Good DX without blocking new GitHub events | Partial model coverage initially |
-| Execution | FastAPI background tasks by default | Simple and fast to adopt | Not durable like queues |
-| Config | Probot-style repo YAML | Familiar and useful | Requires GitHub content fetches and caching |
-| Persistence | Out of core | Keeps v1 focused | Users implement state themselves |
-| Workspace | uv workspace | Clean package separation and shared lockfile | Slightly more repo setup complexity |
-| Security | Verification required by default | Correct and enterprise-safe | Local tests need helpers |
+| Decision        | Choice                                   | Why                                                    | Trade-off                                   |
+| --------------- | ---------------------------------------- | ------------------------------------------------------ | ------------------------------------------- |
+| Framework style | FastAPI-native decorators                | Best fit for Python users                              | Less direct Probot compatibility            |
+| GitHub client   | Separate package plus protocol           | Avoids coupling framework to one client implementation | More initial design work                    |
+| Typing          | Pydantic for common events, raw fallback | Good DX without blocking new GitHub events             | Partial model coverage initially            |
+| Execution       | FastAPI background tasks by default      | Simple and fast to adopt                               | Not durable like queues                     |
+| Config          | Probot-style repo YAML                   | Familiar and useful                                    | Requires GitHub content fetches and caching |
+| Persistence     | Out of core                              | Keeps v1 focused                                       | Users implement state themselves            |
+| Workspace       | uv workspace                             | Clean package separation and shared lockfile           | Slightly more repo setup complexity         |
+| Security        | Verification required by default         | Correct and enterprise-safe                            | Local tests need helpers                    |
 
 ## Open questions
 

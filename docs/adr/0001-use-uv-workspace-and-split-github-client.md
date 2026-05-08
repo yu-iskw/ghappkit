@@ -81,11 +81,11 @@ Enterprise users often need custom queues, token stores, observability, policy e
 
 The packages may need different stability promises:
 
-| Package | API stability expectation |
-|---|---|
-| `octoflow` | Stable developer-facing framework API |
-| `octoflow-github` | Stable client protocol with evolving helper coverage |
-| `octoflow-testing` | Stable test ergonomics, flexible internals |
+| Package            | API stability expectation                            |
+| ------------------ | ---------------------------------------------------- |
+| `octoflow`         | Stable developer-facing framework API                |
+| `octoflow-github`  | Stable client protocol with evolving helper coverage |
+| `octoflow-testing` | Stable test ergonomics, flexible internals           |
 
 ### Preserve local development ergonomics
 
