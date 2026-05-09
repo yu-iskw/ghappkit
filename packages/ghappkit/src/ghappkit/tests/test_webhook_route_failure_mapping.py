@@ -4,17 +4,24 @@ Uses :func:`ghappkit.app._raise_http_for_webhook_route_failure` (the implementat
 behind :meth:`ghappkit.app.GitHubApp.router`) so stable ``detail`` strings are checked
 without a full HTTP stack for every case. Mapped 500 pairs stay aligned with
 ``_WEBHOOK_MAPPED_INTERNAL_ERRORS`` in ``ghappkit.app``.
+
+Probe instances for mapped internal errors are built via ``_MAPPED_INTERNAL_PROBE_BY_TYPE``:
+when you add a row to ``_WEBHOOK_MAPPED_INTERNAL_ERRORS``, add a matching factory here
+so constructor drift is caught immediately (instead of assuming ``exc_cls("probe")`` works).
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from types import MethodType
 from typing import Any
 
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from ghappkit_client.errors import GitHubApiError
+from ghappkit_client.client import GitHubClient
+from ghappkit_client.errors import GitHubApiError, InstallationAuthError
 from ghappkit_testing.fake_client import FakeGitHubClient
 from ghappkit_testing.fixtures import issues_opened
 from ghappkit_testing.signatures import sign_sha256_payload
@@ -27,17 +34,36 @@ from ghappkit.app import (
     _raise_http_for_webhook_route_failure,
 )
 from ghappkit.exceptions import (
+    ErrorHookExecutionError,
+    EventModelError,
+    HandlerExecutionError,
     MissingWebhookSignatureError,
     PayloadParseError,
+    RepoConfigError,
     WebhookHeaderError,
 )
 from ghappkit.execution import InlineExecutor
 
+_MAPPED_INTERNAL_PROBE_BY_TYPE: dict[type[BaseException], Callable[[], BaseException]] = {
+    HandlerExecutionError: lambda: HandlerExecutionError("mapper probe"),
+    ErrorHookExecutionError: lambda: ErrorHookExecutionError("mapper probe"),
+    EventModelError: lambda: EventModelError("mapper probe"),
+    GitHubApiError: lambda: GitHubApiError("mapper probe", status_code=None),
+    InstallationAuthError: lambda: InstallationAuthError("mapper probe"),
+    RepoConfigError: lambda: RepoConfigError("mapper probe"),
+}
 
-def _make_mapped_internal_instance(exc_cls: type[BaseException]) -> BaseException:
-    if exc_cls is GitHubApiError:
-        return GitHubApiError("probe", status_code=None)
-    return exc_cls("probe")
+
+def test_mapped_internal_errors_have_explicit_probe_factory() -> None:
+    """Each ``_WEBHOOK_MAPPED_INTERNAL_ERRORS`` row must have a probe factory (constructor drift)."""
+    for exc_cls, _ in _WEBHOOK_MAPPED_INTERNAL_ERRORS:
+        assert exc_cls in _MAPPED_INTERNAL_PROBE_BY_TYPE, (
+            f"add a probe factory for {exc_cls!r} in _MAPPED_INTERNAL_PROBE_BY_TYPE"
+        )
+
+
+def _probe_for_mapped_internal(exc_cls: type[BaseException]) -> BaseException:
+    return _MAPPED_INTERNAL_PROBE_BY_TYPE[exc_cls]()
 
 
 @pytest.mark.parametrize(
@@ -47,7 +73,7 @@ def _make_mapped_internal_instance(exc_cls: type[BaseException]) -> BaseExceptio
         (WebhookHeaderError("missing event"), 400, "missing event"),
         (PayloadParseError("bad json"), 400, "bad json"),
         *[
-            (_make_mapped_internal_instance(cls), 500, detail)
+            (_probe_for_mapped_internal(cls), 500, detail)
             for cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS
         ],
         (ValueError("surprise"), 500, "webhook delivery failed (ValueError)"),
@@ -62,6 +88,20 @@ def test_raise_http_maps_delivery_exceptions(
         _raise_http_for_webhook_route_failure(exc)
     assert ctx.value.status_code == expected_status
     assert ctx.value.detail == expected_detail
+
+
+class _InstallationTokenProbeExplodes:
+    """Minimal token provider used only to force ``InstallationAuthError`` in tests."""
+
+    async def get_token(
+        self,
+        installation_id: int,
+        *,
+        permissions: dict[str, str] | None = None,
+        repository_ids: list[int] | None = None,
+    ) -> None:
+        del installation_id, permissions, repository_ids
+        raise InstallationAuthError("unit test installation auth failure")
 
 
 def test_router_github_api_error_detail_without_client_factory() -> None:
@@ -94,6 +134,39 @@ def test_router_github_api_error_detail_without_client_factory() -> None:
     )
     assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert resp.json()["detail"] == "webhook_github_api_error"
+
+
+def test_router_installation_auth_error_detail() -> None:
+    """``InstallationAuthError`` from token exchange maps to ``webhook_installation_auth_error``."""
+    settings = make_test_settings(require_signature=True)
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        token_provider=_InstallationTokenProbeExplodes(),  # type: ignore[arg-type]
+    )
+
+    @github.on("issues.opened")
+    async def _h(_ctx: Any) -> None:
+        return None
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-install-auth",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert resp.json()["detail"] == "webhook_installation_auth_error"
 
 
 def test_router_event_model_invalid_detail() -> None:
@@ -134,3 +207,49 @@ def test_router_event_model_invalid_detail() -> None:
     )
     assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert resp.json()["detail"] == "webhook_event_model_invalid"
+
+
+def test_router_repo_config_error_detail(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``RepoConfigError`` raised before handlers still maps to ``webhook_repo_config_error``."""
+    settings = make_test_settings(require_signature=True)
+
+    async def factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        github_client_factory=factory,
+    )
+
+    async def boom_repo_config(
+        _self: GitHubApp,
+        installation_id: int | None,
+    ) -> GitHubClient:
+        del installation_id
+        raise RepoConfigError("unit test repo config failure")
+
+    monkeypatch.setattr(github, "_create_github_client", MethodType(boom_repo_config, github))
+
+    @github.on("issues.opened")
+    async def _h(_ctx: Any) -> None:
+        return None
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-repo-cfg",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert resp.json()["detail"] == "webhook_repo_config_error"
