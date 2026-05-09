@@ -56,6 +56,17 @@ _delivery_failure_phase: ContextVar[str] = ContextVar(
     default="unknown",
 )
 
+# Delivered through ``InlineExecutor.enqueue`` / background scheduling: must not be
+# wrapped in the generic ``HTTPException`` so the router can map stable ``detail`` codes.
+_WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE: tuple[type[BaseException], ...] = (
+    HandlerExecutionError,
+    ErrorHookExecutionError,
+    EventModelError,
+    GitHubApiError,
+    InstallationAuthError,
+    RepoConfigError,
+)
+
 
 def _chain_handler_failure(
     exc: BaseException,
@@ -72,9 +83,14 @@ def _chain_handler_failure(
 
 
 def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:  # noqa: PLR0912
-    """Translate framework delivery errors to HTTP responses (always raises)."""
+    """Translate framework delivery errors to HTTP responses (always raises).
+
+    ``GitHubApiError`` is checked before ``InstallationAuthError`` while those types
+    remain unrelated; if ``InstallationAuthError`` ever subclasses ``GitHubApiError``,
+    reorder these checks so installation-auth failures keep a distinct HTTP ``detail``.
+    """
     if isinstance(exc, WebhookSignatureError):
-        raise HTTPException(status_code=401, detail="invalid webhook signature") from exc
+        raise HTTPException(status_code=401, detail="invalid_webhook_signature") from exc
     if isinstance(exc, (WebhookHeaderError, PayloadParseError)):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if isinstance(exc, HandlerExecutionError):
@@ -187,6 +203,8 @@ class GitHubApp:
                     header_map=request.headers,
                 )
             except Exception as exc:
+                # Intentionally narrow to ``Exception`` so ``BaseException`` subclasses such as
+                # ``asyncio.CancelledError`` are not converted into HTTP 500 responses.
                 _raise_http_for_webhook_route_failure(exc)
 
         return router
@@ -274,7 +292,7 @@ class GitHubApp:
 
         try:
             await executor.enqueue(deferred_delivery)
-        except (HandlerExecutionError, ErrorHookExecutionError):
+        except _WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE:
             raise
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
@@ -312,7 +330,7 @@ class GitHubApp:
 
         try:
             await executor.enqueue(task)
-        except (HandlerExecutionError, ErrorHookExecutionError):
+        except _WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE:
             raise
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
@@ -469,6 +487,11 @@ class GitHubApp:
                 raise wrapped from exc
 
     async def _dispatch_error_hooks(self, error: HandlerError) -> None:
+        """Run registered ``on_error`` hooks in registration order.
+
+        Each hook is awaited sequentially; if a hook raises, later hooks do not run and
+        there is no rollback of side effects from hooks that already completed.
+        """
         for hook in self._registry.error_handlers():
             await self._invoke_error_hook(hook, error)
 

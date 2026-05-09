@@ -53,6 +53,8 @@ class HandlerExecutionError(GhappkitError):
 
 class ErrorHookExecutionError(GhappkitError):
     """A registered ``@github.on_error`` hook raised an exception."""
+
+
 @dataclass(frozen=True)
 class HandlerError:
     """Error details passed to ``@github.on_error`` hooks."""
