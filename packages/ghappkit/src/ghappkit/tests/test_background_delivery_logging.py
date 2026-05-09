@@ -104,8 +104,6 @@ def test_background_executor_logs_error_hook_failure_source(
     )
     assert resp.status_code == 202
     hook_failures = [
-        r
-        for r in caplog.records
-        if getattr(r, "failure_source", None) == "error_hook"
+        r for r in caplog.records if getattr(r, "failure_source", None) == "error_hook"
     ]
     assert hook_failures
