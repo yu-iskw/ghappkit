@@ -1,4 +1,9 @@
-"""Qualified GitHub webhook event names from headers and payload."""
+"""Qualified GitHub webhook event names from headers and payload.
+
+Architecture docs refer to this as ``events.py``; this repository already ships a
+``ghappkit.events`` *package* for typed payload models, so a sibling ``events.py``
+module would collide on import. Keep qualified-name helpers here.
+"""
 
 from __future__ import annotations
 
