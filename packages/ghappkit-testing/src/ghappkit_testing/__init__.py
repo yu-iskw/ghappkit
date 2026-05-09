@@ -1,6 +1,6 @@
 """Testing utilities for ghappkit applications."""
 
-from ghappkit.parsing import split_qualified_event
+from ghappkit.event_resolution import split_qualified_event
 
 from ghappkit_testing.fake_client import FakeGitHubClient
 from ghappkit_testing.fixtures import FIXTURES, payload_fixture

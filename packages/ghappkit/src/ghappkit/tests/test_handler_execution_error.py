@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import pytest
 from ghappkit_testing.fake_client import FakeGitHubClient
 from ghappkit_testing.fixtures import issues_opened
 from ghappkit_testing.simulator import GhappkitTestClient
@@ -42,7 +43,8 @@ def test_failed_handler_wraps_with_handler_execution_error() -> None:
         raise RuntimeError("boom")
 
     async def run() -> None:
-        await GhappkitTestClient(app).deliver("issues.opened", issues_opened())
+        with pytest.raises(HandlerExecutionError):
+            await GhappkitTestClient(app).deliver("issues.opened", issues_opened())
 
     asyncio.run(run())
 

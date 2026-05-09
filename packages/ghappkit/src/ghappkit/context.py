@@ -60,6 +60,7 @@ class WebhookContext(Generic[PayloadT, ConfigT]):
 
     delivery_id: str
     event: str
+    qualified_event: str
     action: str | None
     payload: PayloadT
     raw_payload: dict[str, Any]

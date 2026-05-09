@@ -13,6 +13,18 @@ class WebhookSignatureError(GhappkitError):
     """Invalid or missing GitHub webhook signature."""
 
 
+class MissingWebhookSignatureError(WebhookSignatureError):
+    """``X-Hub-Signature-256`` header absent or empty."""
+
+
+class MalformedWebhookSignatureError(WebhookSignatureError):
+    """Signature header is not ``sha256=<hex>`` with a 32-byte digest."""
+
+
+class InvalidWebhookSignatureError(WebhookSignatureError):
+    """HMAC digest comparison failed."""
+
+
 class WebhookHeaderError(GhappkitError):
     """Malformed or incomplete GitHub webhook headers."""
 

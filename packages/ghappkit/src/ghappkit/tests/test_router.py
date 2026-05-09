@@ -16,6 +16,7 @@ from starlette import status
 from ghappkit.app import GitHubApp
 from ghappkit.context import WebhookContext
 from ghappkit.events import IssuesPayload
+from ghappkit.exceptions import HandlerError
 from ghappkit.execution import InlineExecutor, NoopExecutor
 
 
@@ -188,3 +189,240 @@ def test_ack_before_dispatch_returns_202_for_invalid_json() -> None:
     )
     assert resp.status_code == status.HTTP_202_ACCEPTED
     assert hits["n"] == 0
+
+
+def test_invalid_signature_returns_401() -> None:
+    settings = make_test_settings(require_signature=True)
+    github = GitHubApp(settings=settings, executor=InlineExecutor(), use_background_tasks=False)
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps({"zen": "listening"}).encode("utf-8")
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "ping",
+            "X-GitHub-Delivery": "d-bad-sig",
+            "X-Hub-Signature-256": "sha256=" + "b" * 64,
+        },
+    )
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_missing_event_header_returns_400() -> None:
+    settings = make_test_settings(require_signature=True)
+    github = GitHubApp(settings=settings, executor=InlineExecutor(), use_background_tasks=False)
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = b"{}"
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Delivery": "d-no-event",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_missing_delivery_header_returns_400() -> None:
+    settings = make_test_settings(require_signature=True)
+    github = GitHubApp(settings=settings, executor=InlineExecutor(), use_background_tasks=False)
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = b"{}"
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "ping",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_no_matching_handler_returns_202() -> None:
+    settings = make_test_settings(require_signature=True)
+    github = GitHubApp(settings=settings, executor=InlineExecutor(), use_background_tasks=False)
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps({"zen": "listening"}).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "ping",
+            "X-GitHub-Delivery": "d-no-handler",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_202_ACCEPTED
+
+
+def test_catch_all_handler_invoked() -> None:
+    settings = make_test_settings(require_signature=True)
+
+    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        github_client_factory=client_factory,
+    )
+    seen: list[str] = []
+
+    @github.on_any()
+    async def catch_all(ctx: WebhookContext[Any, Any]) -> None:
+        seen.append(ctx.qualified_event)
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-catch",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_202_ACCEPTED
+    assert seen == ["issues.opened"]
+
+
+def test_base_event_registration_invokes_handler() -> None:
+    settings = make_test_settings(require_signature=True)
+
+    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        github_client_factory=client_factory,
+    )
+    hits: list[str] = []
+
+    @github.on("issues")
+    async def on_issues(ctx: WebhookContext[Any, Any]) -> None:
+        hits.append(ctx.qualified_event)
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-base",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_202_ACCEPTED
+    assert hits == ["issues.opened"]
+
+
+def test_multiple_handlers_preserve_registration_order() -> None:
+    settings = make_test_settings(require_signature=True)
+
+    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        github_client_factory=client_factory,
+    )
+    order: list[str] = []
+
+    @github.on("issues.opened")
+    async def first(ctx: WebhookContext[Any, Any]) -> None:
+        order.append("first")
+
+    @github.on("issues.opened")
+    async def second(ctx: WebhookContext[Any, Any]) -> None:
+        order.append("second")
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-order",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_202_ACCEPTED
+    assert order == ["first", "second"]
+
+
+def test_handler_failure_returns_500_after_error_hook() -> None:
+    settings = make_test_settings(require_signature=True)
+
+    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        github_client_factory=client_factory,
+    )
+    errors: list[str] = []
+
+    @github.on_error()
+    async def on_err(_err: HandlerError) -> None:
+        errors.append("hook")
+
+    @github.on("issues.opened")
+    async def boom(ctx: WebhookContext[Any, Any]) -> None:
+        assert ctx.qualified_event == "issues.opened"
+        raise RuntimeError("handler boom")
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-err",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert errors == ["hook"]

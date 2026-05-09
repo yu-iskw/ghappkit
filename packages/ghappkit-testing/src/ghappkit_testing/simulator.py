@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 
 from ghappkit.app import GitHubApp
-from ghappkit.parsing import split_qualified_event
+from ghappkit.event_resolution import split_qualified_event
 from starlette.responses import Response
 
 

@@ -24,6 +24,7 @@ from ghappkit.context import (
     extract_sender_ref,
 )
 from ghappkit.delivery_logging import delivery_logger, ensure_delivery_log_sanitize_filter
+from ghappkit.event_resolution import qualified_event_name
 from ghappkit.exceptions import (
     HandlerError,
     HandlerExecutionError,
@@ -37,17 +38,13 @@ from ghappkit.execution import (
     InlineExecutor,
     NoopExecutor,
 )
-from ghappkit.parsing import (
-    GitHubDeliveryHeaders,
-    parse_github_delivery_headers,
-    parse_json_payload,
-    qualified_event_name,
-)
+from ghappkit.headers import GitHubDeliveryHeaders, parse_github_delivery_headers
+from ghappkit.payload import parse_json_payload
 from ghappkit.repo_config import RepoConfigLoader
 from ghappkit.routing import ErrorHook, EventRegistry, Handler
-from ghappkit.security import verify_github_signature
 from ghappkit.settings import GitHubAppSettings
 from ghappkit.stub_github import MissingInstallationGitHubClient
+from ghappkit.webhooks import parse_delivery_after_optional_signature
 
 _delivery_failure_phase: ContextVar[str] = ContextVar(
     "ghappkit_delivery_failure_phase",
@@ -164,6 +161,8 @@ class GitHubApp:
                 raise HTTPException(status_code=401, detail="invalid webhook signature") from exc
             except (WebhookHeaderError, PayloadParseError) as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
+            except HandlerExecutionError as exc:
+                raise HTTPException(status_code=500, detail="webhook handler failed") from exc
 
         return router
 
@@ -183,14 +182,13 @@ class GitHubApp:
         verify_signature: bool,
         header_map: Mapping[str, str],
     ) -> Response:
-        headers = parse_github_delivery_headers(header_map)
-        if verify_signature:
-            secret = self.settings.webhook_secret.get_secret_value()
-            verify_github_signature(
-                secret=secret,
-                body=body,
-                signature_header=headers.signature_256,
-            )
+        secret = self.settings.webhook_secret.get_secret_value()
+        headers = parse_delivery_after_optional_signature(
+            raw_body=body,
+            header_map=header_map,
+            webhook_secret=secret,
+            require_signature=verify_signature,
+        )
         inline_parse = not (
             self.settings.webhook_ack_before_dispatch
             and isinstance(executor, FastAPIBackgroundExecutor)
@@ -235,7 +233,7 @@ class GitHubApp:
                 )
                 return
             qualified = qualified_event_name(headers.event, payload)
-            handlers = self._registry.handlers_for(qualified)
+            handlers = self._registry.handlers_for(qualified, headers.event)
             if isinstance(executor, NoopExecutor):
                 return
             if not handlers:
@@ -267,7 +265,7 @@ class GitHubApp:
     ) -> Response:
         payload = parse_json_payload(body)
         qualified = qualified_event_name(headers.event, payload)
-        handlers = self._registry.handlers_for(qualified)
+        handlers = self._registry.handlers_for(qualified, headers.event)
 
         if isinstance(executor, NoopExecutor):
             return Response(status_code=202)
@@ -286,6 +284,8 @@ class GitHubApp:
 
         try:
             await executor.enqueue(task)
+        except HandlerExecutionError:
+            raise
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
                 status_code=500, detail="failed to schedule webhook handlers"
@@ -373,6 +373,7 @@ class GitHubApp:
         ctx = WebhookContext(
             delivery_id=headers.delivery_id,
             event=headers.event,
+            qualified_event=qualified_event,
             action=payload["action"] if isinstance(payload.get("action"), str) else None,
             payload=typed_payload,
             raw_payload=payload,
@@ -425,6 +426,7 @@ class GitHubApp:
                     qualified_event=qualified_event,
                 )
                 await self._dispatch_error_hooks(error)
+                raise wrapped from exc
 
     async def _dispatch_error_hooks(self, error: HandlerError) -> None:
         for hook in self._registry.error_handlers():
