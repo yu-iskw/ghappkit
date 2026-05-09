@@ -24,7 +24,7 @@ from ghappkit.context import (
     extract_sender_ref,
 )
 from ghappkit.delivery_logging import delivery_logger, ensure_delivery_log_sanitize_filter
-from ghappkit.event_resolution import qualified_event_name
+from ghappkit.event_resolution import github_payload_action, qualified_event_name
 from ghappkit.exceptions import (
     HandlerError,
     HandlerExecutionError,
@@ -45,6 +45,8 @@ from ghappkit.routing import ErrorHook, EventRegistry, Handler
 from ghappkit.settings import GitHubAppSettings
 from ghappkit.stub_github import MissingInstallationGitHubClient
 from ghappkit.webhooks import parse_delivery_after_optional_signature
+
+_LOGGER = logging.getLogger("ghappkit")
 
 _delivery_failure_phase: ContextVar[str] = ContextVar(
     "ghappkit_delivery_failure_phase",
@@ -89,7 +91,7 @@ class GitHubApp:
         self._token_provider = token_provider or self._maybe_build_token_provider()
         self._config_loader = RepoConfigLoader(settings, ttl_seconds=config_ttl_seconds)
         self._client_factory = github_client_factory
-        ensure_delivery_log_sanitize_filter(logging.getLogger("ghappkit"))
+        ensure_delivery_log_sanitize_filter(_LOGGER)
 
     async def aclose(self) -> None:
         """Close resources owned by this app (for example the default ``httpx.AsyncClient``)."""
@@ -222,7 +224,7 @@ class GitHubApp:
             try:
                 payload = parse_json_payload(body)
             except PayloadParseError:
-                logging.getLogger("ghappkit").warning(
+                _LOGGER.warning(
                     "github_webhook_payload_invalid",
                     extra={
                         "delivery_id": headers.delivery_id,
@@ -332,7 +334,7 @@ class GitHubApp:
             )
         except Exception as exc:
             if isinstance(executor, FastAPIBackgroundExecutor):
-                logging.getLogger("ghappkit").exception(
+                _LOGGER.exception(
                     "github_webhook_handler_delivery_failed",
                     extra={
                         "delivery_id": headers.delivery_id,
@@ -359,7 +361,7 @@ class GitHubApp:
         repo_ref = extract_repository_ref(payload)
         sender_ref = extract_sender_ref(payload)
         structured = delivery_logger(
-            logging.getLogger("ghappkit"),
+            _LOGGER,
             delivery_id=headers.delivery_id,
             qualified_event=qualified_event,
             installation_id=installation_id,
@@ -374,7 +376,7 @@ class GitHubApp:
             delivery_id=headers.delivery_id,
             event=headers.event,
             qualified_event=qualified_event,
-            action=payload["action"] if isinstance(payload.get("action"), str) else None,
+            action=github_payload_action(payload),
             payload=typed_payload,
             raw_payload=payload,
             installation_id=installation_id,
@@ -436,7 +438,7 @@ class GitHubApp:
         try:
             await hook(error)
         except Exception:  # pylint: disable=broad-exception-caught
-            logging.getLogger("ghappkit").exception("github_error_hook_failed")
+            _LOGGER.exception("github_error_hook_failed")
 
     async def _create_github_client(self, installation_id: int | None) -> GitHubClient:
         if self._client_factory is not None:

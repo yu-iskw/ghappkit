@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from ghappkit.exceptions import WebhookHeaderError
 
 
+def normalize_http_headers(headers: Mapping[str, str]) -> dict[str, str]:
+    """Return headers with lower-cased names (HTTP field names are case-insensitive)."""
+    return {k.lower(): v for k, v in headers.items()}
+
+
 @dataclass(frozen=True)
 class GitHubDeliveryHeaders:
     """Normalized webhook headers from GitHub."""
@@ -21,7 +26,7 @@ class GitHubDeliveryHeaders:
 
 def parse_github_delivery_headers(headers: Mapping[str, str]) -> GitHubDeliveryHeaders:
     """Extract GitHub-specific headers (case-insensitive)."""
-    lowered = {k.lower(): v for k, v in headers.items()}
+    lowered = normalize_http_headers(headers)
     event = lowered.get("x-github-event")
     delivery_id = lowered.get("x-github-delivery")
     if not event or not event.strip():

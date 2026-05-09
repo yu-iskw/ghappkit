@@ -11,6 +11,7 @@ from ghappkit.exceptions import (
     MalformedWebhookSignatureError,
     MissingWebhookSignatureError,
 )
+from ghappkit.headers import normalize_http_headers
 
 HUB_SIGNATURE_SHA256_PREFIX = "sha256="
 
@@ -22,7 +23,7 @@ def verify_github_signature_from_headers(
     headers: Mapping[str, str],
 ) -> None:
     """Read ``X-Hub-Signature-256`` case-insensitively and verify ``body``."""
-    lowered = {k.lower(): v for k, v in headers.items()}
+    lowered = normalize_http_headers(headers)
     signature_header = lowered.get("x-hub-signature-256")
     verify_github_signature(secret=secret, body=body, signature_header=signature_header)
 
@@ -53,8 +54,6 @@ def verify_github_signature(
         provided = bytes.fromhex(digest_hex)
     except ValueError as exc:
         raise MalformedWebhookSignatureError("signature digest is not valid hex") from exc
-    if len(provided) != 32:
-        raise MalformedWebhookSignatureError("signature digest must be 32 bytes")
     expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
     if not hmac.compare_digest(expected, provided):
         raise InvalidWebhookSignatureError("signature mismatch")

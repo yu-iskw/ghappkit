@@ -5,18 +5,11 @@
 
 from __future__ import annotations
 
-import hashlib
-import hmac
-
 import pytest
+from ghappkit_testing.signatures import sign_sha256_payload
 
 from ghappkit.exceptions import InvalidWebhookSignatureError, MissingWebhookSignatureError
 from ghappkit.webhooks import parse_delivery_after_optional_signature
-
-
-def _sig(secret: str, body: bytes) -> str:
-    digest = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-    return f"sha256={digest}"
 
 
 def test_signature_checked_before_header_validation() -> None:
@@ -62,7 +55,7 @@ def test_valid_signature_then_headers() -> None:
         header_map={
             "X-GitHub-Event": "issues",
             "X-GitHub-Delivery": "del",
-            "X-Hub-Signature-256": _sig(secret, body),
+            "X-Hub-Signature-256": sign_sha256_payload(secret, body),
         },
         webhook_secret=secret,
         require_signature=True,

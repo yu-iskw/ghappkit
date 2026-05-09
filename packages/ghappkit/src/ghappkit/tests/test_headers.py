@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from ghappkit.exceptions import WebhookHeaderError
-from ghappkit.headers import parse_github_delivery_headers
+from ghappkit.headers import normalize_http_headers, parse_github_delivery_headers
 
 
 def test_parses_required_headers_case_insensitive() -> None:
@@ -49,3 +49,8 @@ def test_optional_headers() -> None:
     )
     assert headers.hook_id == "99"
     assert headers.user_agent == "GitHub-Hookshot/test"
+
+
+def test_normalize_http_headers_lowercases_names() -> None:
+    lowered = normalize_http_headers({"X-GitHub-Event": "push", "X-Foo": "bar"})
+    assert lowered == {"x-github-event": "push", "x-foo": "bar"}

@@ -9,6 +9,10 @@ def test_qualified_event_with_action() -> None:
     assert qualified_event_name("issues", {"action": "opened"}) == "issues.opened"
 
 
+def test_qualified_event_action_is_stripped() -> None:
+    assert qualified_event_name("issues", {"action": "  opened  "}) == "issues.opened"
+
+
 def test_qualified_event_without_action() -> None:
     assert qualified_event_name("push", {}) == "push"
 
@@ -19,6 +23,10 @@ def test_action_non_string_ignored() -> None:
 
 def test_action_empty_string_ignored() -> None:
     assert qualified_event_name("issues", {"action": ""}) == "issues"
+
+
+def test_action_whitespace_only_ignored() -> None:
+    assert qualified_event_name("issues", {"action": "   "}) == "issues"
 
 
 def test_split_qualified_event() -> None:

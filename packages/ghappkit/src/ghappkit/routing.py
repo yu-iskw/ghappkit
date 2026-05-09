@@ -13,6 +13,11 @@ Handler = Callable[..., Awaitable[Any]]
 ErrorHook = Callable[[HandlerError], Awaitable[None]]
 
 
+def _require_async_callable(handler: Callable[..., Any], *, message: str) -> None:
+    if not inspect.iscoroutinefunction(handler):
+        raise TypeError(message)
+
+
 class EventRegistry:
     """Maps qualified GitHub events to handlers."""
 
@@ -23,25 +28,28 @@ class EventRegistry:
 
     def add(self, names: str | Sequence[str], handler: Handler) -> None:
         """Register handler for one or more qualified names."""
-        if not inspect.iscoroutinefunction(handler):
-            msg = "webhook handlers must be async functions (def handler(ctx): ...)"
-            raise TypeError(msg)
+        _require_async_callable(
+            handler,
+            message="webhook handlers must be async functions (def handler(ctx): ...)",
+        )
         seq = [names] if isinstance(names, str) else list(names)
         for name in seq:
             self._specific[name].append(handler)
 
     def add_any(self, handler: Handler) -> None:
         """Register catch-all handler."""
-        if not inspect.iscoroutinefunction(handler):
-            msg = "webhook handlers must be async functions (def handler(ctx): ...)"
-            raise TypeError(msg)
+        _require_async_callable(
+            handler,
+            message="webhook handlers must be async functions (def handler(ctx): ...)",
+        )
         self._catch_all.append(handler)
 
     def add_error(self, handler: ErrorHook) -> None:
         """Register error hook."""
-        if not inspect.iscoroutinefunction(handler):
-            msg = "error hooks must be async functions (def hook(error): ...)"
-            raise TypeError(msg)
+        _require_async_callable(
+            handler,
+            message="error hooks must be async functions (def hook(error): ...)",
+        )
         self._error_hooks.append(handler)
 
     def handlers_for(self, qualified_event: str, base_event: str) -> list[Handler]:
