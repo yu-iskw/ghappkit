@@ -12,7 +12,7 @@ import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from ghappkit_client.auth import load_private_key_pem
 from ghappkit_client.client import DefaultGitHubClient, GitHubClient
-from ghappkit_client.errors import GitHubApiError, InstallationAuthError
+from ghappkit_client.errors import GhappkitError, GitHubApiError, InstallationAuthError
 from ghappkit_client.token_provider import InstallationTokenProvider
 
 from ghappkit.context import (
@@ -62,7 +62,7 @@ _delivery_failure_phase: ContextVar[str] = ContextVar(
 # executor **awaits** the task (``InlineExecutor``): ``FastAPIBackgroundExecutor.enqueue``
 # only schedules work and does not await it, so failures in background tasks still do not
 # reach ``GitHubApp.router`` after GitHub has received 202 (see ``webhook_ack_before_dispatch``).
-_WEBHOOK_MAPPED_INTERNAL_ERRORS: tuple[tuple[type[BaseException], str], ...] = (
+_WEBHOOK_MAPPED_INTERNAL_ERRORS: tuple[tuple[type[Exception], str], ...] = (
     (HandlerExecutionError, "webhook_handler_failed"),
     (ErrorHookExecutionError, "webhook_error_hook_failed"),
     (EventModelError, "webhook_event_model_invalid"),
@@ -71,7 +71,7 @@ _WEBHOOK_MAPPED_INTERNAL_ERRORS: tuple[tuple[type[BaseException], str], ...] = (
     (RepoConfigError, "webhook_repo_config_error"),
 )
 
-_WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE: tuple[type[BaseException], ...] = tuple(
+_WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE: tuple[type[Exception], ...] = tuple(
     pair[0] for pair in _WEBHOOK_MAPPED_INTERNAL_ERRORS
 )
 
@@ -202,9 +202,9 @@ class GitHubApp:
                     verify_signature=self.settings.require_signature,
                     header_map=request.headers,
                 )
-            except Exception as exc:
-                # Intentionally narrow to ``Exception`` so ``BaseException`` subclasses such as
-                # ``asyncio.CancelledError`` are not converted into HTTP 500 responses.
+            except HTTPException:
+                raise
+            except GhappkitError as exc:
                 _raise_http_for_webhook_route_failure(exc)
 
         return router
@@ -292,9 +292,9 @@ class GitHubApp:
 
         try:
             await executor.enqueue(deferred_delivery)
-        except _WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE:
-            raise
-        except Exception as exc:  # pylint: disable=broad-exception-caught
+        except Exception as exc:
+            if isinstance(exc, _WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE):
+                raise
             raise HTTPException(
                 status_code=500,
                 detail=f"failed to schedule webhook handlers ({type(exc).__name__})",
@@ -330,9 +330,9 @@ class GitHubApp:
 
         try:
             await executor.enqueue(task)
-        except _WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE:
-            raise
-        except Exception as exc:  # pylint: disable=broad-exception-caught
+        except Exception as exc:
+            if isinstance(exc, _WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE):
+                raise
             raise HTTPException(
                 status_code=500,
                 detail=f"failed to schedule webhook handlers ({type(exc).__name__})",
