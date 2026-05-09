@@ -9,6 +9,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from ghappkit_client.models import InstallationToken
+from ghappkit_testing.fake_client import FakeGitHubClient
 from pydantic import SecretStr
 
 from ghappkit.app import GitHubApp
@@ -78,4 +79,19 @@ def test_injected_token_provider_skips_private_key_path_loading(
         settings=settings,
         token_provider=_StubInstallationTokenProvider(),  # type: ignore[arg-type]
     )
+    assert gh._token_provider is not None
+
+
+def test_github_client_factory_skips_app_id_validation_when_pem_configured() -> None:
+    """Factory-driven GitHub clients bypass default installation-token flow."""
+    settings = GitHubAppSettings(
+        app_id=0,
+        webhook_secret=SecretStr("secret"),
+        private_key=SecretStr(_minimal_rsa_pem()),
+    )
+
+    async def factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    gh = GitHubApp(settings=settings, github_client_factory=factory)
     assert gh._token_provider is not None
