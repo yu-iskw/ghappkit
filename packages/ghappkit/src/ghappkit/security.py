@@ -22,10 +22,17 @@ def verify_github_signature_from_headers(
     body: bytes,
     headers: Mapping[str, str],
 ) -> None:
-    """Read ``X-Hub-Signature-256`` case-insensitively and verify ``body``."""
+    """Read ``X-Hub-Signature-256`` case-insensitively and verify ``body``.
+
+    Prefer :func:`ghappkit.webhooks.parse_delivery_after_optional_signature` in the
+    webhook pipeline so header maps are normalized only once per request.
+    """
     lowered = normalize_http_headers(headers)
-    signature_header = lowered.get("x-hub-signature-256")
-    verify_github_signature(secret=secret, body=body, signature_header=signature_header)
+    verify_github_signature(
+        secret=secret,
+        body=body,
+        signature_header=lowered.get("x-hub-signature-256"),
+    )
 
 
 def verify_github_signature(

@@ -24,21 +24,25 @@ class GitHubDeliveryHeaders:
     user_agent: str | None
 
 
-def parse_github_delivery_headers(headers: Mapping[str, str]) -> GitHubDeliveryHeaders:
-    """Extract GitHub-specific headers (case-insensitive)."""
-    lowered = normalize_http_headers(headers)
+def parse_github_delivery_headers_normalized(lowered: Mapping[str, str]) -> GitHubDeliveryHeaders:
+    """Parse GitHub webhook headers from a mapping whose keys are already lower-case."""
     event = lowered.get("x-github-event")
     delivery_id = lowered.get("x-github-delivery")
     if not event or not event.strip():
         raise WebhookHeaderError("missing X-GitHub-Event header")
     if not delivery_id or not delivery_id.strip():
         raise WebhookHeaderError("missing X-GitHub-Delivery header")
-    event = event.strip()
-    delivery_id = delivery_id.strip()
+    event_stripped = event.strip()
+    delivery_stripped = delivery_id.strip()
     return GitHubDeliveryHeaders(
-        event=event,
-        delivery_id=delivery_id,
+        event=event_stripped,
+        delivery_id=delivery_stripped,
         signature_256=lowered.get("x-hub-signature-256"),
         hook_id=lowered.get("x-github-hook-id"),
         user_agent=lowered.get("user-agent"),
     )
+
+
+def parse_github_delivery_headers(headers: Mapping[str, str]) -> GitHubDeliveryHeaders:
+    """Extract GitHub-specific headers (case-insensitive)."""
+    return parse_github_delivery_headers_normalized(normalize_http_headers(headers))

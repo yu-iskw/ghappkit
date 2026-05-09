@@ -38,7 +38,7 @@ from ghappkit.execution import (
     InlineExecutor,
     NoopExecutor,
 )
-from ghappkit.headers import GitHubDeliveryHeaders, parse_github_delivery_headers
+from ghappkit.headers import GitHubDeliveryHeaders
 from ghappkit.payload import parse_json_payload
 from ghappkit.repo_config import RepoConfigLoader
 from ghappkit.routing import ErrorHook, EventRegistry, Handler
@@ -157,7 +157,7 @@ class GitHubApp:
                     body=body,
                     executor=executor,
                     verify_signature=self.settings.require_signature,
-                    header_map=dict(request.headers),
+                    header_map=request.headers,
                 )
             except WebhookSignatureError as exc:
                 raise HTTPException(status_code=401, detail="invalid webhook signature") from exc
@@ -165,6 +165,11 @@ class GitHubApp:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             except HandlerExecutionError as exc:
                 raise HTTPException(status_code=500, detail="webhook handler failed") from exc
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"webhook delivery failed ({type(exc).__name__})",
+                ) from exc
 
         return router
 
@@ -253,7 +258,8 @@ class GitHubApp:
             await executor.enqueue(deferred_delivery)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
-                status_code=500, detail="failed to schedule webhook handlers"
+                status_code=500,
+                detail=f"failed to schedule webhook handlers ({type(exc).__name__})",
             ) from exc
 
         return Response(status_code=202)
@@ -290,7 +296,8 @@ class GitHubApp:
             raise
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
-                status_code=500, detail="failed to schedule webhook handlers"
+                status_code=500,
+                detail=f"failed to schedule webhook handlers ({type(exc).__name__})",
             ) from exc
 
         return Response(status_code=202)
@@ -305,7 +312,13 @@ class GitHubApp:
     ) -> Response:
         """Simulate a webhook delivery without signature verification."""
         chosen = executor or InlineExecutor()
-        hdrs = parse_github_delivery_headers(headers)
+        secret = self.settings.webhook_secret.get_secret_value()
+        hdrs = parse_delivery_after_optional_signature(
+            raw_body=body,
+            header_map=headers,
+            webhook_secret=secret,
+            require_signature=False,
+        )
         return await self._dispatch_handlers(
             request,
             hdrs,
@@ -439,6 +452,7 @@ class GitHubApp:
             await hook(error)
         except Exception:  # pylint: disable=broad-exception-caught
             _LOGGER.exception("github_error_hook_failed")
+            raise
 
     async def _create_github_client(self, installation_id: int | None) -> GitHubClient:
         if self._client_factory is not None:

@@ -24,9 +24,12 @@ def qualified_event_name(event: str, payload: Mapping[str, Any]) -> str:
 
 
 def split_qualified_event(name: str) -> tuple[str, str | None]:
-    """Split a qualified name for tests and simulators (first ``.`` only).
+    """Split a synthetic qualified name on the first ``.`` (tests / simulators).
 
-    ``issues.opened`` → ``("issues", "opened")``; ``push`` → ``("push", None)``.
+    GitHub sends ``X-GitHub-Event`` as the base name and ``action`` in the JSON body;
+    ghappkit forms ``event`` or ``event.action``. This helper only splits the first
+    segment so ``issues.opened`` → ``("issues", "opened")``; it does not interpret
+    multi-dot names beyond that first split.
     """
     if "." not in name:
         return name, None

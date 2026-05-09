@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from ghappkit_testing.fake_client import FakeGitHubClient
@@ -18,6 +20,7 @@ from ghappkit.context import WebhookContext
 from ghappkit.events import IssuesPayload
 from ghappkit.exceptions import HandlerError
 from ghappkit.execution import InlineExecutor, NoopExecutor
+from ghappkit.webhooks import parse_delivery_after_optional_signature
 
 
 def _make_client(*, require_signature: bool = True) -> tuple[TestClient, GitHubApp]:
@@ -159,7 +162,12 @@ def test_invalid_json_returns_400_when_parse_is_inline() -> None:
 
 
 def test_ack_before_dispatch_returns_202_for_invalid_json() -> None:
-    """Throughput mode: JSON validation happens after 202 (parse failures are logged only)."""
+    """Contract: fast-ack + background defers JSON parse; GitHub gets 202, not 400.
+
+    This intentionally differs from the default inline path (see
+    ``test_invalid_json_returns_400_when_parse_is_inline``), where invalid JSON
+    is rejected with HTTP 400 before any handler runs.
+    """
     settings = make_test_settings(
         require_signature=True,
         webhook_ack_before_dispatch=True,
@@ -426,3 +434,76 @@ def test_handler_failure_returns_500_after_error_hook() -> None:
     )
     assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert errors == ["hook"]
+
+
+def test_error_hook_failure_is_not_swallowed() -> None:
+    """Broken ``on_error`` hooks propagate so regressions are visible (HTTP 500)."""
+    settings = make_test_settings(require_signature=True)
+
+    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        github_client_factory=client_factory,
+    )
+
+    @github.on_error()
+    async def broken_hook(_err: HandlerError) -> None:
+        raise ValueError("error hook regression")
+
+    @github.on("issues.opened")
+    async def boom(_ctx: WebhookContext[Any, Any]) -> None:
+        raise RuntimeError("handler boom")
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-hook-fail",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+def test_dispatch_for_tests_uses_parse_delivery_entrypoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: tests should exercise the same verify-then-parse helper as production."""
+    calls = {"n": 0}
+    real = parse_delivery_after_optional_signature
+
+    def _spy(*args: object, **kwargs: object) -> object:
+        calls["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr("ghappkit.app.parse_delivery_after_optional_signature", _spy)
+    settings = make_test_settings(require_signature=False)
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+    )
+
+    async def run() -> None:
+        body = json.dumps({"zen": "x"}).encode("utf-8")
+        await github.dispatch_for_tests(
+            headers={
+                "X-GitHub-Event": "ping",
+                "X-GitHub-Delivery": "d-spy",
+            },
+            body=body,
+        )
+
+    asyncio.run(run())
+    assert calls["n"] == 1

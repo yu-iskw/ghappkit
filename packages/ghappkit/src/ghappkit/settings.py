@@ -40,7 +40,9 @@ class GitHubAppSettings(BaseSettings):
             "immediately after signature verification; JSON parsing and handler execution "
             "run in a background task. Invalid JSON is logged with delivery metadata but "
             "GitHub receives 202 (no HTTP 400). Ignored with InlineExecutor / NoopExecutor. "
-            "When handler setup fails after 202, logs include failure_phase and error_type."
+            "When handler setup fails after 202, logs include failure_phase and error_type. "
+            "Contrast: with InlineExecutor (or ack disabled), invalid JSON is rejected with "
+            "HTTP 400 before any 202 is sent."
         ),
     )
     config_file: str = Field(
