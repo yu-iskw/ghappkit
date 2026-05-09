@@ -106,9 +106,11 @@ def test_raise_http_maps_delivery_exceptions(
 def test_raise_http_unmapped_exception_logs_type(caplog: pytest.LogCaptureFixture) -> None:
     """Unmapped errors use stable HTTP detail; exception class is logged server-side."""
     err = RuntimeError("internal")
-    with caplog.at_level(logging.ERROR, logger="ghappkit"):
-        with pytest.raises(HTTPException) as ctx:
-            _raise_http_for_webhook_route_failure(err)
+    with (
+        caplog.at_level(logging.ERROR, logger="ghappkit"),
+        pytest.raises(HTTPException) as ctx,
+    ):
+        _raise_http_for_webhook_route_failure(err)
     assert ctx.value.status_code == 500
     assert ctx.value.detail == "webhook_delivery_failed"
     assert any(r.exc_info is not None and r.exc_info[1] is err for r in caplog.records)
