@@ -1,4 +1,10 @@
-"""Contract tests for :func:`ghappkit.app._raise_http_for_webhook_route_failure`."""
+"""Contract tests for GitHub webhook HTTP ``detail`` mapping.
+
+Uses :func:`ghappkit.app._raise_http_for_webhook_route_failure` (the implementation
+behind :meth:`ghappkit.app.GitHubApp.router`) so stable ``detail`` strings are checked
+without a full HTTP stack for every case. Mapped 500 pairs stay aligned with
+``_WEBHOOK_MAPPED_INTERNAL_ERRORS`` in ``ghappkit.app``.
+"""
 
 from __future__ import annotations
 
@@ -8,24 +14,30 @@ from typing import Any
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from ghappkit_client.errors import GitHubApiError, InstallationAuthError
+from ghappkit_client.errors import GitHubApiError
 from ghappkit_testing.fake_client import FakeGitHubClient
 from ghappkit_testing.fixtures import issues_opened
 from ghappkit_testing.signatures import sign_sha256_payload
 from ghappkit_testing.test_settings import make_test_settings
 from starlette import status
 
-from ghappkit.app import GitHubApp, _raise_http_for_webhook_route_failure
+from ghappkit.app import (
+    _WEBHOOK_MAPPED_INTERNAL_ERRORS,
+    GitHubApp,
+    _raise_http_for_webhook_route_failure,
+)
 from ghappkit.exceptions import (
-    ErrorHookExecutionError,
-    EventModelError,
-    HandlerExecutionError,
     MissingWebhookSignatureError,
     PayloadParseError,
-    RepoConfigError,
     WebhookHeaderError,
 )
 from ghappkit.execution import InlineExecutor
+
+
+def _make_mapped_internal_instance(exc_cls: type[BaseException]) -> BaseException:
+    if exc_cls is GitHubApiError:
+        return GitHubApiError("probe", status_code=None)
+    return exc_cls("probe")
 
 
 @pytest.mark.parametrize(
@@ -34,12 +46,10 @@ from ghappkit.execution import InlineExecutor
         (MissingWebhookSignatureError("missing"), 401, "invalid_webhook_signature"),
         (WebhookHeaderError("missing event"), 400, "missing event"),
         (PayloadParseError("bad json"), 400, "bad json"),
-        (HandlerExecutionError("wrapped"), 500, "webhook_handler_failed"),
-        (ErrorHookExecutionError("hook"), 500, "webhook_error_hook_failed"),
-        (EventModelError("model"), 500, "webhook_event_model_invalid"),
-        (GitHubApiError("api", status_code=None), 500, "webhook_github_api_error"),
-        (InstallationAuthError("auth"), 500, "webhook_installation_auth_error"),
-        (RepoConfigError("repo"), 500, "webhook_repo_config_error"),
+        *[
+            (_make_mapped_internal_instance(cls), 500, detail)
+            for cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS
+        ],
         (ValueError("surprise"), 500, "webhook delivery failed (ValueError)"),
     ],
 )

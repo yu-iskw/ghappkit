@@ -56,15 +56,23 @@ _delivery_failure_phase: ContextVar[str] = ContextVar(
     default="unknown",
 )
 
-# Delivered through ``InlineExecutor.enqueue`` / background scheduling: must not be
-# wrapped in the generic ``HTTPException`` so the router can map stable ``detail`` codes.
-_WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE: tuple[type[BaseException], ...] = (
-    HandlerExecutionError,
-    ErrorHookExecutionError,
-    EventModelError,
-    GitHubApiError,
-    InstallationAuthError,
-    RepoConfigError,
+# (exception type, HTTP 500 ``detail``). Order matters for ``isinstance`` if types ever
+# inherit from one another; keep ``GitHubApiError`` before ``InstallationAuthError``.
+# This sequence also defines which exceptions must propagate from ``enqueue`` when the
+# executor **awaits** the task (``InlineExecutor``): ``FastAPIBackgroundExecutor.enqueue``
+# only schedules work and does not await it, so failures in background tasks still do not
+# reach ``GitHubApp.router`` after GitHub has received 202 (see ``webhook_ack_before_dispatch``).
+_WEBHOOK_MAPPED_INTERNAL_ERRORS: tuple[tuple[type[BaseException], str], ...] = (
+    (HandlerExecutionError, "webhook_handler_failed"),
+    (ErrorHookExecutionError, "webhook_error_hook_failed"),
+    (EventModelError, "webhook_event_model_invalid"),
+    (GitHubApiError, "webhook_github_api_error"),
+    (InstallationAuthError, "webhook_installation_auth_error"),
+    (RepoConfigError, "webhook_repo_config_error"),
+)
+
+_WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE: tuple[type[BaseException], ...] = tuple(
+    pair[0] for pair in _WEBHOOK_MAPPED_INTERNAL_ERRORS
 )
 
 
@@ -82,29 +90,21 @@ def _chain_handler_failure(
     return err
 
 
-def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:  # noqa: PLR0912
+def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:
     """Translate framework delivery errors to HTTP responses (always raises).
 
-    ``GitHubApiError`` is checked before ``InstallationAuthError`` while those types
-    remain unrelated; if ``InstallationAuthError`` ever subclasses ``GitHubApiError``,
-    reorder these checks so installation-auth failures keep a distinct HTTP ``detail``.
+    All :class:`WebhookSignatureError` subclasses share the same 401 ``detail`` so clients
+    can treat any signature problem as unauthorized without parsing subtypes.
+
+    Internal server errors for mapped types are driven by ``_WEBHOOK_MAPPED_INTERNAL_ERRORS``.
     """
     if isinstance(exc, WebhookSignatureError):
         raise HTTPException(status_code=401, detail="invalid_webhook_signature") from exc
     if isinstance(exc, (WebhookHeaderError, PayloadParseError)):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if isinstance(exc, HandlerExecutionError):
-        raise HTTPException(status_code=500, detail="webhook_handler_failed") from exc
-    if isinstance(exc, ErrorHookExecutionError):
-        raise HTTPException(status_code=500, detail="webhook_error_hook_failed") from exc
-    if isinstance(exc, EventModelError):
-        raise HTTPException(status_code=500, detail="webhook_event_model_invalid") from exc
-    if isinstance(exc, GitHubApiError):
-        raise HTTPException(status_code=500, detail="webhook_github_api_error") from exc
-    if isinstance(exc, InstallationAuthError):
-        raise HTTPException(status_code=500, detail="webhook_installation_auth_error") from exc
-    if isinstance(exc, RepoConfigError):
-        raise HTTPException(status_code=500, detail="webhook_repo_config_error") from exc
+    for exc_cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS:
+        if isinstance(exc, exc_cls):
+            raise HTTPException(status_code=500, detail=detail) from exc
     raise HTTPException(
         status_code=500,
         detail=f"webhook delivery failed ({type(exc).__name__})",
