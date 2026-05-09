@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from types import MethodType
-from typing import Any
+from typing import Any, NoReturn
 
 import pytest
 from fastapi import FastAPI, HTTPException
@@ -55,11 +55,13 @@ _MAPPED_INTERNAL_PROBE_BY_TYPE: dict[type[BaseException], Callable[[], BaseExcep
 
 
 def test_mapped_internal_errors_have_explicit_probe_factory() -> None:
-    """Each ``_WEBHOOK_MAPPED_INTERNAL_ERRORS`` row must have a probe factory (constructor drift)."""
-    for exc_cls, _ in _WEBHOOK_MAPPED_INTERNAL_ERRORS:
-        assert exc_cls in _MAPPED_INTERNAL_PROBE_BY_TYPE, (
-            f"add a probe factory for {exc_cls!r} in _MAPPED_INTERNAL_PROBE_BY_TYPE"
-        )
+    """Each mapped row has a probe factory, and probe keys match mapped types (no orphans)."""
+    mapped_types = {exc_cls for exc_cls, _ in _WEBHOOK_MAPPED_INTERNAL_ERRORS}
+    probe_types = set(_MAPPED_INTERNAL_PROBE_BY_TYPE)
+    assert mapped_types == probe_types, (
+        "keep _WEBHOOK_MAPPED_INTERNAL_ERRORS and _MAPPED_INTERNAL_PROBE_BY_TYPE in sync: "
+        f"only in mapped={mapped_types - probe_types!r}, only in probes={probe_types - mapped_types!r}"
+    )
 
 
 def _probe_for_mapped_internal(exc_cls: type[BaseException]) -> BaseException:
@@ -99,7 +101,7 @@ class _InstallationTokenProbeExplodes:
         *,
         permissions: dict[str, str] | None = None,
         repository_ids: list[int] | None = None,
-    ) -> None:
+    ) -> NoReturn:
         del installation_id, permissions, repository_ids
         raise InstallationAuthError("unit test installation auth failure")
 
@@ -212,15 +214,10 @@ def test_router_event_model_invalid_detail() -> None:
 def test_router_repo_config_error_detail(monkeypatch: pytest.MonkeyPatch) -> None:
     """``RepoConfigError`` raised before handlers still maps to ``webhook_repo_config_error``."""
     settings = make_test_settings(require_signature=True)
-
-    async def factory(_installation_id: int | None) -> FakeGitHubClient:
-        return FakeGitHubClient()
-
     github = GitHubApp(
         settings=settings,
         executor=InlineExecutor(),
         use_background_tasks=False,
-        github_client_factory=factory,
     )
 
     async def boom_repo_config(
