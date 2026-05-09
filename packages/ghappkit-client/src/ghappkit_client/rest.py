@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 from typing import Any
 from urllib.parse import quote
 
@@ -120,8 +121,14 @@ class IssuesHelpers:
         encoded = data.get("content")
         if not isinstance(encoded, str):
             return None
-        decoded_bytes = base64.b64decode(encoded.replace("\n", ""))
-        return decoded_bytes.decode("utf-8")
+        try:
+            decoded_bytes = base64.b64decode(encoded.replace("\n", ""))
+        except binascii.Error as exc:
+            raise ValueError("repository file content could not be base64-decoded") from exc
+        try:
+            return decoded_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError("repository file content is not valid utf-8") from exc
 
     def _headers(self) -> dict[str, str]:
         return {

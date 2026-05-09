@@ -25,7 +25,7 @@ def test_inline_executor_surfaces_invoke_failure(monkeypatch: pytest.MonkeyPatch
     async def _noop(_ctx: WebhookContext[Any, Any]) -> None:
         return None
 
-    async def boom(*args: object, **kwargs: object) -> None:
+    async def boom(*_args: object, **_kwargs: object) -> None:
         raise RuntimeError("delivery pipeline failed")
 
     monkeypatch.setattr(gh, "_invoke_handlers", boom)

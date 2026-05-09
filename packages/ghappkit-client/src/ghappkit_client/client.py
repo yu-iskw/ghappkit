@@ -69,12 +69,9 @@ class DefaultGitHubClient:
     ) -> GitHubResponse:
         """HTTP request with Bearer installation token."""
         url = join_api_url(self._api_base, path)
-        merged_headers: dict[str, str] = {
-            "Authorization": self._auth_header,
-            "Accept": "application/vnd.github+json",
-        }
-        if headers:
-            merged_headers.update(headers)
+        merged_headers: dict[str, str] = dict(headers) if headers else {}
+        merged_headers["Authorization"] = self._auth_header
+        merged_headers["Accept"] = "application/vnd.github+json"
         resp = await send_request(
             self._http,
             method,

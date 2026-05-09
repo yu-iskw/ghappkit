@@ -62,12 +62,15 @@ class RepoConfigLoader:
             if now - ts < self._ttl:
                 return _snapshot_repo_config(value)
 
-        text = await ctx.github.rest.issues.fetch_repo_text_file(
-            owner=repo.owner,
-            repo=repo.name,
-            path=path,
-            ref=ref,
-        )
+        try:
+            text = await ctx.github.rest.issues.fetch_repo_text_file(
+                owner=repo.owner,
+                repo=repo.name,
+                path=path,
+                ref=ref,
+            )
+        except ValueError as exc:
+            raise RepoConfigError("repository configuration file could not be read") from exc
         if text is None:
             result = self._finalize_default(model, default)
             self._maybe_store(cache_key, now, result)

@@ -39,7 +39,8 @@ class GitHubAppSettings(BaseSettings):
             "If True and handlers run via FastAPIBackgroundExecutor, respond with 202 "
             "immediately after signature verification; JSON parsing and handler execution "
             "run in a background task. Invalid JSON is logged with delivery metadata but "
-            "GitHub receives 202 (no HTTP 400). Ignored with InlineExecutor / NoopExecutor."
+            "GitHub receives 202 (no HTTP 400). Ignored with InlineExecutor / NoopExecutor. "
+            "When handler setup fails after 202, logs include failure_phase and error_type."
         ),
     )
     config_file: str = Field(

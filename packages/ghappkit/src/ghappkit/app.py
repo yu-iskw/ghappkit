@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from contextvars import ContextVar
 from typing import Any, cast
 
 import httpx
@@ -22,7 +23,7 @@ from ghappkit.context import (
     extract_repository_ref,
     extract_sender_ref,
 )
-from ghappkit.delivery_logging import delivery_logger
+from ghappkit.delivery_logging import delivery_logger, ensure_delivery_log_sanitize_filter
 from ghappkit.exceptions import (
     HandlerError,
     HandlerExecutionError,
@@ -47,6 +48,11 @@ from ghappkit.routing import ErrorHook, EventRegistry, Handler
 from ghappkit.security import verify_github_signature
 from ghappkit.settings import GitHubAppSettings
 from ghappkit.stub_github import MissingInstallationGitHubClient
+
+_delivery_failure_phase: ContextVar[str] = ContextVar(
+    "ghappkit_delivery_failure_phase",
+    default="unknown",
+)
 
 
 def _chain_handler_failure(
@@ -86,6 +92,7 @@ class GitHubApp:
         self._token_provider = token_provider or self._maybe_build_token_provider()
         self._config_loader = RepoConfigLoader(settings, ttl_seconds=config_ttl_seconds)
         self._client_factory = github_client_factory
+        ensure_delivery_log_sanitize_filter(logging.getLogger("ghappkit"))
 
     async def aclose(self) -> None:
         """Close resources owned by this app (for example the default ``httpx.AsyncClient``)."""
@@ -323,7 +330,7 @@ class GitHubApp:
                 qualified_event,
                 handlers,
             )
-        except Exception:
+        except Exception as exc:
             if isinstance(executor, FastAPIBackgroundExecutor):
                 logging.getLogger("ghappkit").exception(
                     "github_webhook_handler_delivery_failed",
@@ -331,6 +338,8 @@ class GitHubApp:
                         "delivery_id": headers.delivery_id,
                         "event": headers.event,
                         "qualified_event": qualified_event,
+                        "failure_phase": _delivery_failure_phase.get(),
+                        "error_type": type(exc).__name__,
                     },
                 )
                 return
@@ -344,6 +353,7 @@ class GitHubApp:
         qualified_event: str,
         handlers: Sequence[Handler],
     ) -> None:
+        _delivery_failure_phase.set("github_client")
         installation_id = extract_installation_id(payload)
         github_client = await self._create_github_client(installation_id)
         repo_ref = extract_repository_ref(payload)
@@ -357,7 +367,9 @@ class GitHubApp:
             sender=sender_ref.login if sender_ref else None,
         )
         bound = BoundLogger(structured.logger, structured.extra)
+        _delivery_failure_phase.set("payload_model")
         typed_payload = build_payload_model(qualified_event, payload)
+        _delivery_failure_phase.set("context_build")
         ctx = WebhookContext(
             delivery_id=headers.delivery_id,
             event=headers.event,
@@ -373,6 +385,7 @@ class GitHubApp:
             _config_loader=self._config_loader,
         )
 
+        _delivery_failure_phase.set("handlers")
         for handler in handlers:
             start = time.perf_counter()
             handler_name = getattr(handler, "__name__", repr(handler))
