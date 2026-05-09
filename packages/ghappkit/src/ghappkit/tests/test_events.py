@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
-from ghappkit.event_resolution import qualified_event_name, split_qualified_event
+from ghappkit.event_resolution import (
+    qualified_event_name,
+    resolve_qualified_webhook_event,
+    split_qualified_event,
+)
 
 
-def test_qualified_event_with_action() -> None:
-    assert qualified_event_name("issues", {"action": "opened"}) == "issues.opened"
+def test_resolve_qualified_webhook_event_matches_qualified_event_name() -> None:
+    payload = {"action": "opened"}
+    q1, action = resolve_qualified_webhook_event("issues", payload)
+    assert action == "opened"
+    assert q1 == qualified_event_name("issues", payload)
+
+    q2, none_action = resolve_qualified_webhook_event("push", {})
+    assert none_action is None
+    assert q2 == "push"
 
 
 def test_qualified_event_action_is_stripped() -> None:
