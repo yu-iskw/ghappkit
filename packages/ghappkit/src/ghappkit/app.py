@@ -169,6 +169,7 @@ class GitHubApp:
             token_provider is None
             and built_token_provider is not None
             and self.settings.app_id == 0
+            and github_client_factory is None
         ):
             raise ValueError(
                 "GitHubAppSettings.app_id must be a non-zero GitHub App ID when a "
