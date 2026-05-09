@@ -67,3 +67,9 @@ def test_parse_github_delivery_headers_normalized_skips_second_normalize() -> No
 def test_normalize_http_headers_lowercases_names() -> None:
     lowered = normalize_http_headers({"X-GitHub-Event": "push", "X-Foo": "bar"})
     assert lowered == {"x-github-event": "push", "x-foo": "bar"}
+
+
+def test_normalize_http_headers_rejects_non_string_values() -> None:
+    bad: dict[str, object] = {"X-GitHub-Event": 123}
+    with pytest.raises(WebhookHeaderError, match="must be strings"):
+        normalize_http_headers(bad)  # type: ignore[arg-type]

@@ -9,8 +9,20 @@ from ghappkit.exceptions import WebhookHeaderError
 
 
 def normalize_http_headers(headers: Mapping[str, str]) -> dict[str, str]:
-    """Return headers with lower-cased names (HTTP field names are case-insensitive)."""
-    return {k.lower(): v for k, v in headers.items()}
+    """Return headers with lower-cased names (HTTP field names are case-insensitive).
+
+    Values must be ``str`` (as in ASGI/Starlette scope headers); otherwise
+    :class:`~ghappkit.exceptions.WebhookHeaderError` is raised so callers can map
+    this to HTTP 400 instead of an opaque 500.
+    """
+    lowered: dict[str, str] = {}
+    for key, value in headers.items():
+        if not isinstance(value, str):
+            raise WebhookHeaderError(
+                "invalid webhook headers: all header values must be strings",
+            )
+        lowered[key.lower()] = value
+    return lowered
 
 
 @dataclass(frozen=True)

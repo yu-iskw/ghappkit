@@ -6,13 +6,13 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextvars import ContextVar
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from ghappkit_client.auth import load_private_key_pem
 from ghappkit_client.client import DefaultGitHubClient, GitHubClient
-from ghappkit_client.errors import GitHubApiError
+from ghappkit_client.errors import GitHubApiError, InstallationAuthError
 from ghappkit_client.token_provider import InstallationTokenProvider
 
 from ghappkit.context import (
@@ -26,9 +26,12 @@ from ghappkit.context import (
 from ghappkit.delivery_logging import delivery_logger, ensure_delivery_log_sanitize_filter
 from ghappkit.event_resolution import github_payload_action, qualified_event_name
 from ghappkit.exceptions import (
+    ErrorHookExecutionError,
+    EventModelError,
     HandlerError,
     HandlerExecutionError,
     PayloadParseError,
+    RepoConfigError,
     WebhookHeaderError,
     WebhookSignatureError,
 )
@@ -66,6 +69,30 @@ def _chain_handler_failure(
     )
     err.__cause__ = exc
     return err
+
+
+def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:  # noqa: PLR0912
+    """Translate framework delivery errors to HTTP responses (always raises)."""
+    if isinstance(exc, WebhookSignatureError):
+        raise HTTPException(status_code=401, detail="invalid webhook signature") from exc
+    if isinstance(exc, (WebhookHeaderError, PayloadParseError)):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, HandlerExecutionError):
+        raise HTTPException(status_code=500, detail="webhook_handler_failed") from exc
+    if isinstance(exc, ErrorHookExecutionError):
+        raise HTTPException(status_code=500, detail="webhook_error_hook_failed") from exc
+    if isinstance(exc, EventModelError):
+        raise HTTPException(status_code=500, detail="webhook_event_model_invalid") from exc
+    if isinstance(exc, GitHubApiError):
+        raise HTTPException(status_code=500, detail="webhook_github_api_error") from exc
+    if isinstance(exc, InstallationAuthError):
+        raise HTTPException(status_code=500, detail="webhook_installation_auth_error") from exc
+    if isinstance(exc, RepoConfigError):
+        raise HTTPException(status_code=500, detail="webhook_repo_config_error") from exc
+    raise HTTPException(
+        status_code=500,
+        detail=f"webhook delivery failed ({type(exc).__name__})",
+    ) from exc
 
 
 class GitHubApp:
@@ -159,17 +186,8 @@ class GitHubApp:
                     verify_signature=self.settings.require_signature,
                     header_map=request.headers,
                 )
-            except WebhookSignatureError as exc:
-                raise HTTPException(status_code=401, detail="invalid webhook signature") from exc
-            except (WebhookHeaderError, PayloadParseError) as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-            except HandlerExecutionError as exc:
-                raise HTTPException(status_code=500, detail="webhook handler failed") from exc
             except Exception as exc:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"webhook delivery failed ({type(exc).__name__})",
-                ) from exc
+                _raise_http_for_webhook_route_failure(exc)
 
         return router
 
@@ -256,6 +274,8 @@ class GitHubApp:
 
         try:
             await executor.enqueue(deferred_delivery)
+        except (HandlerExecutionError, ErrorHookExecutionError):
+            raise
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
                 status_code=500,
@@ -292,7 +312,7 @@ class GitHubApp:
 
         try:
             await executor.enqueue(task)
-        except HandlerExecutionError:
+        except (HandlerExecutionError, ErrorHookExecutionError):
             raise
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise HTTPException(
@@ -347,15 +367,20 @@ class GitHubApp:
             )
         except Exception as exc:
             if isinstance(executor, FastAPIBackgroundExecutor):
+                extra: dict[str, Any] = {
+                    "delivery_id": headers.delivery_id,
+                    "event": headers.event,
+                    "qualified_event": qualified_event,
+                    "failure_phase": _delivery_failure_phase.get(),
+                    "error_type": type(exc).__name__,
+                }
+                if isinstance(exc, ErrorHookExecutionError):
+                    extra["failure_source"] = "error_hook"
+                else:
+                    extra["failure_source"] = "handler_or_framework"
                 _LOGGER.exception(
                     "github_webhook_handler_delivery_failed",
-                    extra={
-                        "delivery_id": headers.delivery_id,
-                        "event": headers.event,
-                        "qualified_event": qualified_event,
-                        "failure_phase": _delivery_failure_phase.get(),
-                        "error_type": type(exc).__name__,
-                    },
+                    extra=extra,
                 )
                 return
             raise
@@ -450,9 +475,11 @@ class GitHubApp:
     async def _invoke_error_hook(self, hook: ErrorHook, error: HandlerError) -> None:
         try:
             await hook(error)
-        except Exception:  # pylint: disable=broad-exception-caught
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             _LOGGER.exception("github_error_hook_failed")
-            raise
+            raise ErrorHookExecutionError(
+                "registered GitHub webhook error hook failed",
+            ) from exc
 
     async def _create_github_client(self, installation_id: int | None) -> GitHubClient:
         if self._client_factory is not None:

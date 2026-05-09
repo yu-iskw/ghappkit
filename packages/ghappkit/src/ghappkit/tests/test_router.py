@@ -433,6 +433,7 @@ def test_handler_failure_returns_500_after_error_hook() -> None:
         },
     )
     assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert resp.json()["detail"] == "webhook_handler_failed"
     assert errors == ["hook"]
 
 
@@ -474,6 +475,7 @@ def test_error_hook_failure_is_not_swallowed() -> None:
         },
     )
     assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert resp.json()["detail"] == "webhook_error_hook_failed"
 
 
 def test_dispatch_for_tests_uses_parse_delivery_entrypoint(

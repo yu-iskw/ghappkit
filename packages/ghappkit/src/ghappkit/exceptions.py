@@ -42,9 +42,17 @@ class RepoConfigError(GhappkitError):
 
 
 class HandlerExecutionError(GhappkitError):
-    """User handler raised an exception (after wrapping)."""
+    """User handler raised an exception (after wrapping).
+
+    This type must remain a direct subclass of :class:`GhappkitError` (not of
+    :class:`WebhookSignatureError` or other webhook transport errors) so
+    :meth:`GitHubApp.router` can map it to HTTP 500 before broader ``Exception``
+    handlers.
+    """
 
 
+class ErrorHookExecutionError(GhappkitError):
+    """A registered ``@github.on_error`` hook raised an exception."""
 @dataclass(frozen=True)
 class HandlerError:
     """Error details passed to ``@github.on_error`` hooks."""
