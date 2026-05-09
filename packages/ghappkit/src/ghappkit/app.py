@@ -108,7 +108,9 @@ def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:
     Client-facing HTTP 400 responses use stable ``detail`` strings (no exception message
     passthrough). Payload parse failures map to ``invalid_webhook_payload_encoding``,
     ``invalid_webhook_payload_json``, or ``invalid_webhook_payload_not_object`` depending
-    on failure mode; header problems use ``invalid_webhook_headers``.
+    on failure mode; header problems use ``invalid_webhook_headers``. Unmapped framework
+    failures use HTTP 500 ``detail`` ``webhook_delivery_failed`` (exception type is logged,
+    not echoed to clients).
     """
     if isinstance(exc, WebhookSignatureError):
         raise HTTPException(status_code=401, detail="invalid_webhook_signature") from exc
@@ -123,10 +125,12 @@ def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:
     for exc_cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS:
         if isinstance(exc, exc_cls):
             raise HTTPException(status_code=500, detail=detail) from exc
-    raise HTTPException(
-        status_code=500,
-        detail=f"webhook delivery failed ({type(exc).__name__})",
-    ) from exc
+    _LOGGER.error(
+        "webhook_delivery_unmapped_failure",
+        exc_info=(type(exc), exc, exc.__traceback__),
+        extra={"error_type": type(exc).__name__},
+    )
+    raise HTTPException(status_code=500, detail="webhook_delivery_failed") from exc
 
 
 class GitHubApp:
@@ -165,6 +169,14 @@ class GitHubApp:
         self._config_loader = RepoConfigLoader(settings, ttl_seconds=config_ttl_seconds)
         self._client_factory = github_client_factory
         ensure_delivery_log_sanitize_filter(_LOGGER)
+        if not self.settings.require_signature:
+            _LOGGER.warning(
+                "github_webhook_signature_verification_disabled",
+                extra={
+                    "component": "ghappkit",
+                    "hint": "GITHUB_APP_REQUIRE_SIGNATURE is false; webhook HMAC checks are off",
+                },
+            )
         if (
             token_provider is None
             and built_token_provider is not None

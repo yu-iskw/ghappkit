@@ -48,6 +48,24 @@ def test_handlers_for_legacy_base_event_after_qualified() -> None:
     assert reg.handlers_for("issues.opened", base_event="issues") == [_h1, _h2]
 
 
+async def _shared(_ctx: Any) -> None:
+    return None
+
+
+def test_legacy_mode_dedupes_same_handler_for_qualified_and_base() -> None:
+    reg = EventRegistry()
+    reg.add("issues.opened", _shared)
+    reg.add("issues", _shared)
+    assert reg.handlers_for("issues.opened", base_event="issues") == [_shared]
+
+
+def test_specific_and_catch_all_dedupes_same_handler() -> None:
+    reg = EventRegistry()
+    reg.add("ping", _shared)
+    reg.add_any(_shared)
+    assert reg.handlers_for("ping") == [_shared]
+
+
 def test_no_duplicate_when_qualified_equals_base() -> None:
     reg = EventRegistry()
     reg.add("push", _h1)
