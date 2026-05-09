@@ -177,11 +177,7 @@ class GitHubApp:
         qualified_event: str,
         headers: GitHubDeliveryHeaders,
     ) -> list[Handler]:
-        base = (
-            headers.event
-            if self.settings.webhook_match_legacy_base_event_handlers
-            else None
-        )
+        base = headers.event if self.settings.webhook_match_legacy_base_event_handlers else None
         return self._registry.handlers_for(qualified_event, base_event=base)
 
     async def aclose(self) -> None:
