@@ -155,6 +155,7 @@ def test_json_array_body_returns_400() -> None:
         },
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert resp.json()["detail"] == "invalid_webhook_payload"
 
 
 def test_on_list_registers_same_handler_for_multiple_events() -> None:
@@ -273,6 +274,7 @@ def test_invalid_json_returns_400_when_parse_is_inline() -> None:
         },
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert resp.json()["detail"] == "invalid_webhook_payload"
 
 
 def test_ack_before_dispatch_returns_202_for_invalid_json() -> None:
@@ -350,6 +352,7 @@ def test_missing_event_header_returns_400() -> None:
         },
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert resp.json()["detail"] == "invalid_webhook_headers"
 
 
 def test_missing_delivery_header_returns_400() -> None:
@@ -370,6 +373,7 @@ def test_missing_delivery_header_returns_400() -> None:
         },
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert resp.json()["detail"] == "invalid_webhook_headers"
 
 
 def test_no_matching_handler_returns_202() -> None:
@@ -466,6 +470,51 @@ def test_base_event_registration_does_not_invoke_for_qualified_action() -> None:
     )
     assert resp.status_code == status.HTTP_202_ACCEPTED
     assert hits == []
+
+
+def test_legacy_base_event_setting_runs_base_handler_after_qualified() -> None:
+    """``webhook_match_legacy_base_event_handlers`` restores pre-P0 dispatch ordering."""
+    settings = make_test_settings(
+        require_signature=True,
+        webhook_match_legacy_base_event_handlers=True,
+    )
+
+    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
+        return FakeGitHubClient()
+
+    github = GitHubApp(
+        settings=settings,
+        executor=InlineExecutor(),
+        use_background_tasks=False,
+        github_client_factory=client_factory,
+    )
+    hits: list[str] = []
+
+    @github.on("issues.opened")
+    async def qualified_first(_ctx: WebhookContext[Any, Any]) -> None:
+        hits.append("qualified")
+
+    @github.on("issues")
+    async def base_second(_ctx: WebhookContext[Any, Any]) -> None:
+        hits.append("base")
+
+    api = FastAPI()
+    api.include_router(github.router(), prefix="/api")
+    client = TestClient(api)
+    body = json.dumps(issues_opened()).encode("utf-8")
+    secret = settings.webhook_secret.get_secret_value()
+    sig = sign_sha256_payload(secret, body)
+    resp = client.post(
+        "/api/webhooks",
+        content=body,
+        headers={
+            "X-GitHub-Event": "issues",
+            "X-GitHub-Delivery": "d-legacy-base",
+            "X-Hub-Signature-256": sig,
+        },
+    )
+    assert resp.status_code == status.HTTP_202_ACCEPTED
+    assert hits == ["qualified", "base"]
 
 
 def test_multiple_handlers_preserve_registration_order() -> None:

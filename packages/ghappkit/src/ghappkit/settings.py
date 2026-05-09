@@ -39,16 +39,27 @@ class GitHubAppSettings(BaseSettings):
     github_web_url: AnyHttpUrl = Field(default=AnyHttpUrl("https://github.com"))
     webhook_path: str = Field(default="/webhooks")
     require_signature: bool = Field(default=True)
+    webhook_match_legacy_base_event_handlers: bool = Field(
+        default=False,
+        description=(
+            "When True, handlers registered only for the base ``X-GitHub-Event`` value "
+            "(for example ``issues``) also run after handlers for qualified names such as "
+            "``issues.opened``. Default False (P0): only exact qualified names and catch-all "
+            "handlers match. Enable only for backward compatibility with older ghappkit "
+            "behavior."
+        ),
+    )
     webhook_ack_before_dispatch: bool = Field(
         default=False,
         description=(
             "If True and handlers run via FastAPIBackgroundExecutor, respond with 202 "
             "immediately after signature verification; JSON parsing and handler execution "
             "run in a background task. Invalid JSON is logged with delivery metadata but "
-            "GitHub receives 202 (no HTTP 400). Ignored with InlineExecutor / NoopExecutor. "
-            "When handler setup fails after 202, logs include failure_phase and error_type. "
-            "Contrast: with InlineExecutor (or ack disabled), invalid JSON is rejected with "
-            "HTTP 400 before any 202 is sent."
+            "GitHub receives 202 (no HTTP 400). GitHub will not retry based on your HTTP "
+            "status for parse failures in this mode. Ignored with InlineExecutor / "
+            "NoopExecutor. When handler setup fails after 202, logs include failure_phase "
+            "and error_type. Contrast: with InlineExecutor (or ack disabled), invalid JSON "
+            "is rejected with HTTP 400 before any 202 is sent."
         ),
     )
     config_file: str = Field(

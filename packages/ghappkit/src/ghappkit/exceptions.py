@@ -57,7 +57,12 @@ class ErrorHookExecutionError(GhappkitError):
 
 @dataclass(frozen=True)
 class HandlerError:
-    """Error details passed to ``@github.on_error`` hooks."""
+    """Error details passed to ``@github.on_error`` hooks.
+
+    ``exc`` is normally a :class:`HandlerExecutionError` wrapping the user handler's
+    failure. Inspect ``exc.__cause__`` for the original exception raised by the handler
+    when present.
+    """
 
     exc: BaseException
     context: Any

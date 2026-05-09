@@ -41,6 +41,13 @@ def test_base_event_registration_does_not_match_qualified_action() -> None:
     assert reg.handlers_for("issues.opened") == [_h1]
 
 
+def test_handlers_for_legacy_base_event_after_qualified() -> None:
+    reg = EventRegistry()
+    reg.add("issues.opened", _h1)
+    reg.add("issues", _h2)
+    assert reg.handlers_for("issues.opened", base_event="issues") == [_h1, _h2]
+
+
 def test_no_duplicate_when_qualified_equals_base() -> None:
     reg = EventRegistry()
     reg.add("push", _h1)
