@@ -19,7 +19,13 @@ class GitHubAppSettings(BaseSettings):
         extra="ignore",
     )
 
-    app_id: int = Field(description="GitHub App ID")
+    app_id: int = Field(
+        default=0,
+        description=(
+            "GitHub App ID (used by installation token flows). "
+            "Webhook-only setups may leave this unset (0)."
+        ),
+    )
     webhook_secret: SecretStr = Field(description="Webhook secret for HMAC verification")
     private_key: SecretStr | None = Field(
         default=None,
