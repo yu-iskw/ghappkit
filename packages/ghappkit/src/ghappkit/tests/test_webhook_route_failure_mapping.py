@@ -72,8 +72,8 @@ def _probe_for_mapped_internal(exc_cls: type[BaseException]) -> BaseException:
     ("exc", "expected_status", "expected_detail"),
     [
         (MissingWebhookSignatureError("missing"), 401, "invalid_webhook_signature"),
-        (WebhookHeaderError("missing event"), 400, "missing event"),
-        (PayloadParseError("bad json"), 400, "bad json"),
+        (WebhookHeaderError("missing event"), 400, "invalid_webhook_headers"),
+        (PayloadParseError("bad json"), 400, "invalid_webhook_payload"),
         *[
             (_probe_for_mapped_internal(cls), 500, detail)
             for cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS
