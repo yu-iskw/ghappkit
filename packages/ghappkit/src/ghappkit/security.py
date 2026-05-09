@@ -4,10 +4,35 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from collections.abc import Mapping
 
-from ghappkit.exceptions import WebhookSignatureError
+from ghappkit.exceptions import (
+    InvalidWebhookSignatureError,
+    MalformedWebhookSignatureError,
+    MissingWebhookSignatureError,
+)
+from ghappkit.headers import normalize_http_headers
 
 HUB_SIGNATURE_SHA256_PREFIX = "sha256="
+
+
+def verify_github_signature_from_headers(
+    *,
+    secret: str,
+    body: bytes,
+    headers: Mapping[str, str],
+) -> None:
+    """Read ``X-Hub-Signature-256`` case-insensitively and verify ``body``.
+
+    Prefer :func:`ghappkit.webhooks.parse_delivery_after_optional_signature` in the
+    webhook pipeline so header maps are normalized only once per request.
+    """
+    lowered = normalize_http_headers(headers)
+    verify_github_signature(
+        secret=secret,
+        body=body,
+        signature_header=lowered.get("x-hub-signature-256"),
+    )
 
 
 def verify_github_signature(
@@ -19,15 +44,23 @@ def verify_github_signature(
     """Verify ``X-Hub-Signature-256`` using the webhook secret.
 
     Raises:
-        WebhookSignatureError: secret comparisons failures never echo secrets.
+        MissingWebhookSignatureError: header missing or blank.
+        MalformedWebhookSignatureError: not ``sha256=`` + 64 hex chars.
+        InvalidWebhookSignatureError: digest mismatch (constant-time compare).
     """
-    if not signature_header:
-        raise WebhookSignatureError("missing X-Hub-Signature-256 header")
+    if not signature_header or not signature_header.strip():
+        raise MissingWebhookSignatureError("missing X-Hub-Signature-256 header")
     header = signature_header.strip()
     prefix = HUB_SIGNATURE_SHA256_PREFIX
     if not header.startswith(prefix):
-        raise WebhookSignatureError("signature must use sha256 algorithm")
+        raise MalformedWebhookSignatureError("signature must use sha256 algorithm")
     digest_hex = header[len(prefix) :]
-    expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, digest_hex):
-        raise WebhookSignatureError("signature mismatch")
+    if len(digest_hex) != 64:
+        raise MalformedWebhookSignatureError("signature digest must be 64 hex characters")
+    try:
+        provided = bytes.fromhex(digest_hex)
+    except ValueError as exc:
+        raise MalformedWebhookSignatureError("signature digest is not valid hex") from exc
+    expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
+    if not hmac.compare_digest(expected, provided):
+        raise InvalidWebhookSignatureError("signature mismatch")

@@ -72,6 +72,7 @@ def test_repo_config_loads_yaml_model() -> None:
         ctx = WebhookContext(
             delivery_id="d",
             event="push",
+            qualified_event="push",
             action=None,
             payload={},
             raw_payload={
@@ -104,6 +105,7 @@ def test_repo_config_invalid_yaml_raises() -> None:
         ctx = WebhookContext(
             delivery_id="d",
             event="push",
+            qualified_event="push",
             action=None,
             payload={},
             raw_payload={
@@ -135,6 +137,7 @@ def test_repo_config_decode_failure_raises_repo_config_error() -> None:
         ctx = WebhookContext(
             delivery_id="d",
             event="push",
+            qualified_event="push",
             action=None,
             payload={},
             raw_payload={
@@ -166,6 +169,7 @@ def test_repo_config_validation_error_raises() -> None:
         ctx = WebhookContext(
             delivery_id="d",
             event="push",
+            qualified_event="push",
             action=None,
             payload={},
             raw_payload={
@@ -202,6 +206,7 @@ def test_repo_config_ttl_returns_independent_copies() -> None:
         ctx = WebhookContext(
             delivery_id="d",
             event="push",
+            qualified_event="push",
             action=None,
             payload={},
             raw_payload={
@@ -242,6 +247,7 @@ def test_repo_config_default_without_model_returns_independent_dicts() -> None:
         ctx = WebhookContext(
             delivery_id="d",
             event="push",
+            qualified_event="push",
             action=None,
             payload={},
             raw_payload={},

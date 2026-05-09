@@ -5,9 +5,13 @@ from ghappkit_client.errors import GhappkitError
 from ghappkit.app import GitHubApp
 from ghappkit.context import RepositoryRef, SenderRef, WebhookContext
 from ghappkit.exceptions import (
+    ErrorHookExecutionError,
     EventModelError,
     HandlerError,
     HandlerExecutionError,
+    InvalidWebhookSignatureError,
+    MalformedWebhookSignatureError,
+    MissingWebhookSignatureError,
     PayloadParseError,
     RepoConfigError,
     WebhookHeaderError,
@@ -28,6 +32,7 @@ OctoflowError = GhappkitError
 __all__ = [
     "DeliveryExecutor",
     "ErrorHook",
+    "ErrorHookExecutionError",
     "EventModelError",
     "FastAPIBackgroundExecutor",
     "GhappkitError",
@@ -36,6 +41,9 @@ __all__ = [
     "HandlerError",
     "HandlerExecutionError",
     "InlineExecutor",
+    "InvalidWebhookSignatureError",
+    "MalformedWebhookSignatureError",
+    "MissingWebhookSignatureError",
     "NoopExecutor",
     "OctoflowError",
     "PayloadParseError",
