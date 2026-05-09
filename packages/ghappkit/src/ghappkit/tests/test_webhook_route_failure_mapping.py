@@ -13,6 +13,7 @@ so constructor drift is caught immediately (instead of assuming ``exc_cls("probe
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from types import MethodType
 from typing import Any, NoReturn
@@ -88,7 +89,7 @@ def _probe_for_mapped_internal(exc_cls: type[BaseException]) -> BaseException:
             (_probe_for_mapped_internal(cls), 500, detail)
             for cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS
         ],
-        (ValueError("surprise"), 500, "webhook delivery failed (ValueError)"),
+        (ValueError("surprise"), 500, "webhook_delivery_failed"),
     ],
 )
 def test_raise_http_maps_delivery_exceptions(
@@ -100,6 +101,17 @@ def test_raise_http_maps_delivery_exceptions(
         _raise_http_for_webhook_route_failure(exc)
     assert ctx.value.status_code == expected_status
     assert ctx.value.detail == expected_detail
+
+
+def test_raise_http_unmapped_exception_logs_type(caplog: pytest.LogCaptureFixture) -> None:
+    """Unmapped errors use stable HTTP detail; exception class is logged server-side."""
+    err = RuntimeError("internal")
+    with caplog.at_level(logging.ERROR, logger="ghappkit"):
+        with pytest.raises(HTTPException) as ctx:
+            _raise_http_for_webhook_route_failure(err)
+    assert ctx.value.status_code == 500
+    assert ctx.value.detail == "webhook_delivery_failed"
+    assert any(r.exc_info is not None and r.exc_info[1] is err for r in caplog.records)
 
 
 class _InstallationTokenProbeExplodes:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -95,3 +96,10 @@ def test_github_client_factory_skips_app_id_validation_when_pem_configured() -> 
 
     gh = GitHubApp(settings=settings, github_client_factory=factory)
     assert gh._token_provider is not None
+
+
+def test_warns_when_signature_verification_disabled(caplog: pytest.LogCaptureFixture) -> None:
+    settings = GitHubAppSettings(webhook_secret=SecretStr("secret"), require_signature=False)
+    with caplog.at_level(logging.WARNING, logger="ghappkit"):
+        GitHubApp(settings=settings)
+    assert "github_webhook_signature_verification_disabled" in caplog.text

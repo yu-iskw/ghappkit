@@ -12,6 +12,27 @@ FastAPI-native framework for building production-grade GitHub Apps in Python.
 
 Examples live under [`examples/`](examples/). Authoritative design notes: [RFC 0001](docs/rfcs/0001-octoflow-fastapi-github-app-framework.md), [ADR 0001](docs/adr/0001-use-uv-workspace-and-split-github-client.md).
 
+## Webhooks: HTTP responses & security
+
+GitHub posts JSON bodies to the FastAPI route exposed by [`GitHubApp.router`](packages/ghappkit/). Responses use stable `detail` strings (not raw exception messages) so clients can branch without parsing internal wording:
+
+| Scenario                                     | HTTP status | `detail`                                            |
+| -------------------------------------------- | ----------- | --------------------------------------------------- |
+| Bad or missing `X-Hub-Signature-256`         | 401         | `invalid_webhook_signature`                         |
+| Missing or malformed GitHub delivery headers | 400         | `invalid_webhook_headers`                           |
+| Body not UTF-8                               | 400         | `invalid_webhook_payload_encoding`                  |
+| Body not JSON                                | 400         | `invalid_webhook_payload_json`                      |
+| JSON value not an object                     | 400         | `invalid_webhook_payload_not_object`                |
+| Other unhandled delivery errors              | 500         | `webhook_delivery_failed` (type logged server-side) |
+
+Several mapped internal failures use dedicated 500 `detail` strings (for example `webhook_handler_failed`); see `packages/ghappkit/src/ghappkit/app.py`.
+
+**Trust model:** GitHub signs the **raw request body** with your webhook secret (`X-Hub-Signature-256`). Header names such as `X-GitHub-Event` are **not** part of that digest—only the shared secret binds authenticity to the payload bytes. Keep `GITHUB_APP_WEBHOOK_SECRET` confidential.
+
+**`GITHUB_APP_REQUIRE_SIGNATURE`:** Defaults to enabled. Turning signature verification off exposes your webhook URL to unauthenticated traffic and should be limited to tests or tightly controlled environments. [`GitHubApp`](packages/ghappkit/) logs a warning at startup when verification is disabled.
+
+**Legacy handler matching:** With `GITHUB_APP_WEBHOOK_MATCH_LEGACY_BASE_EVENT_HANDLERS=true`, handlers registered for both the qualified event (for example `issues.opened`) and the base event (`issues`) are merged; **the same handler object is only invoked once** per delivery.
+
 Python tooling shares the root [`ruff.toml`](ruff.toml); flake8-type-checking `TC001`–`TC003` are ignored there because Pyright already validates imports and PEP 563 annotations keep many imports typing-only at runtime.
 
 ## Features

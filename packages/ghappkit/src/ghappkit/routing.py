@@ -13,6 +13,19 @@ Handler = Callable[..., Awaitable[Any]]
 ErrorHook = Callable[[HandlerError], Awaitable[None]]
 
 
+def _unique_handlers_in_order(handlers: Sequence[Handler]) -> list[Handler]:
+    """Drop duplicate handler callables (same object identity) while preserving order."""
+    seen: set[int] = set()
+    out: list[Handler] = []
+    for handler in handlers:
+        token = id(handler)
+        if token in seen:
+            continue
+        seen.add(token)
+        out.append(handler)
+    return out
+
+
 def _require_async_callable(handler: Callable[..., Any], *, message: str) -> None:
     if not inspect.iscoroutinefunction(handler):
         raise TypeError(message)
@@ -68,11 +81,14 @@ class EventRegistry:
         Legacy compatibility: when ``base_event`` is set and differs from
         ``qualified_event`` (for example ``issues`` vs ``issues.opened``), handlers
         registered for ``base_event`` run after qualified handlers and before catch-alls.
+
+        The merged list is de-duplicated by handler object identity so registering the
+        same async function under both the qualified and base event runs it at most once.
         """
         specific = [*self._specific.get(qualified_event, [])]
         if base_event is not None and base_event != qualified_event:
             specific.extend(self._specific.get(base_event, []))
-        return [*specific, *self._catch_all]
+        return _unique_handlers_in_order([*specific, *self._catch_all])
 
     def error_handlers(self) -> Iterable[ErrorHook]:
         """Registered error hooks."""
