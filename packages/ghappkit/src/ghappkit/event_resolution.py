@@ -20,12 +20,20 @@ def github_payload_action(payload: Mapping[str, Any]) -> str | None:
     return stripped or None
 
 
+def resolve_qualified_webhook_event(
+    event: str,
+    payload: Mapping[str, Any],
+) -> tuple[str, str | None]:
+    """Parse ``action`` once and return ``(qualified_name, action)``."""
+    action = github_payload_action(payload)
+    qualified = f"{event}.{action}" if action else event
+    return qualified, action
+
+
 def qualified_event_name(event: str, payload: Mapping[str, Any]) -> str:
     """Compute ghappkit qualified event name (``event`` or ``event.action``)."""
-    action = github_payload_action(payload)
-    if action:
-        return f"{event}.{action}"
-    return event
+    qualified, _ = resolve_qualified_webhook_event(event, payload)
+    return qualified
 
 
 def split_qualified_event(name: str) -> tuple[str, str | None]:
