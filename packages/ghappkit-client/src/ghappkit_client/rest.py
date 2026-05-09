@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 import httpx
 
+from ghappkit_client.errors import RepositoryFileDecodeError
 from ghappkit_client.transport import join_api_url, raise_for_github_status, send_request
 
 
@@ -124,11 +125,15 @@ class IssuesHelpers:
         try:
             decoded_bytes = base64.b64decode(encoded.replace("\n", ""))
         except binascii.Error as exc:
-            raise ValueError("repository file content could not be base64-decoded") from exc
+            raise RepositoryFileDecodeError(
+                "repository file content could not be base64-decoded",
+            ) from exc
         try:
             return decoded_bytes.decode("utf-8")
         except UnicodeDecodeError as exc:
-            raise ValueError("repository file content is not valid utf-8") from exc
+            raise RepositoryFileDecodeError(
+                "repository file content is not valid utf-8",
+            ) from exc
 
     def _headers(self) -> dict[str, str]:
         return {

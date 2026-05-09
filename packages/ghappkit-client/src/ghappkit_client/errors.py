@@ -31,6 +31,10 @@ class InstallationAuthError(GhappkitError):
     """Failed to obtain an installation access token."""
 
 
+class RepositoryFileDecodeError(GhappkitError):
+    """Contents API returned a file payload that could not be decoded safely."""
+
+
 _SECRET_PATTERNS = (
     re.compile(r"(?:Authorization:\s*)(Bearer\s+)([^\s]+)", re.IGNORECASE),
     re.compile(r'("token"\s*:\s*")([^"]+)(")', re.IGNORECASE),

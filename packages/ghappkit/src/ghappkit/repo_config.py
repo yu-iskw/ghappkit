@@ -8,9 +8,10 @@ from collections.abc import Callable
 from typing import Any
 
 import yaml
+from ghappkit_client.errors import RepositoryFileDecodeError
 from pydantic import BaseModel, ValidationError
 
-from ghappkit.context import WebhookContext
+from ghappkit.context import RepositoryRef, WebhookContext
 from ghappkit.exceptions import RepoConfigError
 from ghappkit.settings import GitHubAppSettings
 
@@ -62,15 +63,7 @@ class RepoConfigLoader:
             if now - ts < self._ttl:
                 return _snapshot_repo_config(value)
 
-        try:
-            text = await ctx.github.rest.issues.fetch_repo_text_file(
-                owner=repo.owner,
-                repo=repo.name,
-                path=path,
-                ref=ref,
-            )
-        except ValueError as exc:
-            raise RepoConfigError("repository configuration file could not be read") from exc
+        text = await self._fetch_repo_yaml_text(ctx, repo, path=path, ref=ref)
         if text is None:
             result = self._finalize_default(model, default)
             self._maybe_store(cache_key, now, result)
@@ -84,6 +77,28 @@ class RepoConfigLoader:
         parsed = self._validate(model, loaded)
         self._maybe_store(cache_key, now, parsed)
         return _snapshot_repo_config(parsed)
+
+    async def _fetch_repo_yaml_text(
+        self,
+        ctx: WebhookContext[Any, Any],
+        repo: RepositoryRef,
+        *,
+        path: str,
+        ref: str | None,
+    ) -> str | None:
+        try:
+            return await ctx.github.rest.issues.fetch_repo_text_file(
+                owner=repo.owner,
+                repo=repo.name,
+                path=path,
+                ref=ref,
+            )
+        except RepositoryFileDecodeError as exc:
+            raise RepoConfigError("repository configuration file could not be read") from exc
+        except ValueError as exc:
+            raise RepoConfigError(
+                "repository configuration could not be loaded from GitHub API response",
+            ) from exc
 
     def _maybe_store(self, key: tuple[Any, ...], now: float, value: Any) -> None:
         if self._ttl > 0:

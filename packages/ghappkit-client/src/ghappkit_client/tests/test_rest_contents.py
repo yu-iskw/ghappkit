@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from ghappkit_client.errors import RepositoryFileDecodeError
 from ghappkit_client.rest import IssuesHelpers
 
 
@@ -30,7 +31,7 @@ def test_fetch_repo_text_file_raises_on_invalid_base64(monkeypatch: pytest.Monke
     monkeypatch.setattr(helper, "get_repo_content_json", fake_get_repo_content_json)
 
     async def run() -> None:
-        with pytest.raises(ValueError, match="base64"):
+        with pytest.raises(RepositoryFileDecodeError, match="base64"):
             await helper.fetch_repo_text_file(owner="o", repo="r", path=".github/x.yml")
 
     asyncio.run(run())

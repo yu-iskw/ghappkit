@@ -6,6 +6,7 @@ from ghappkit_client.errors import (
     GhappkitError,
     GitHubApiError,
     InstallationAuthError,
+    RepositoryFileDecodeError,
     redact_secrets,
 )
 from ghappkit_client.graphql import GitHubGraphQLClient
@@ -28,6 +29,7 @@ __all__ = [
     "InstallationToken",
     "InstallationTokenProvider",
     "RateLimitInfo",
+    "RepositoryFileDecodeError",
     "create_app_jwt",
     "graphql_api_url",
     "iter_rest_pages",

@@ -15,6 +15,7 @@ from ghappkit.context import BoundLogger, RepositoryRef, WebhookContext
 from ghappkit.exceptions import RepoConfigError
 from ghappkit.repo_config import RepoConfigLoader
 from ghappkit.settings import GitHubAppSettings
+from ghappkit_client.errors import RepositoryFileDecodeError
 
 
 class SampleCfg(BaseModel):
@@ -53,7 +54,7 @@ class _StubIssuesDecodeFailure:
         ref: str | None = None,
     ) -> str | None:
         del owner, repo, path, ref
-        raise ValueError("repository file content could not be base64-decoded")
+        raise RepositoryFileDecodeError("repository file content could not be base64-decoded")
 
 
 def _stub_github_decode_failure() -> Any:
@@ -153,6 +154,54 @@ def test_repo_config_decode_failure_raises_repo_config_error() -> None:
             _config_loader=loader,
         )
         with pytest.raises(RepoConfigError, match="could not be read"):
+            await loader.load(ctx, model=SampleCfg, file_name=None, default=None)
+
+    asyncio.run(run())
+
+
+class _StubIssuesApiShapeFailure:
+    async def fetch_repo_text_file(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: str | None = None,
+    ) -> str | None:
+        del owner, repo, path, ref
+        raise ValueError("expected object JSON from contents API")
+
+
+def _stub_github_api_shape_failure() -> Any:
+    return SimpleNamespace(rest=SimpleNamespace(issues=_StubIssuesApiShapeFailure()))
+
+
+def test_repo_config_github_api_valueerror_raises_distinct_repo_config_error() -> None:
+    settings = GitHubAppSettings(app_id=1, webhook_secret=SecretStr("s"))
+    loader = RepoConfigLoader(settings)
+
+    async def run() -> None:
+        ctx = WebhookContext(
+            delivery_id="d",
+            event="push",
+            action=None,
+            payload={},
+            raw_payload={
+                "repository": {
+                    "name": "demo",
+                    "owner": {"login": "acme"},
+                    "default_branch": "main",
+                },
+            },
+            installation_id=1,
+            repo=RepositoryRef(owner="acme", name="demo"),
+            sender=None,
+            github=_stub_github_api_shape_failure(),
+            log=BoundLogger(logging.getLogger("ghappkit.tests.repo_cfg_api"), {}),
+            request=None,
+            _config_loader=loader,
+        )
+        with pytest.raises(RepoConfigError, match="GitHub API response"):
             await loader.load(ctx, model=SampleCfg, file_name=None, default=None)
 
     asyncio.run(run())
