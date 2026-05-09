@@ -33,7 +33,15 @@ members = [
   "packages/ghappkit",
   "packages/ghappkit-client",
   "packages/ghappkit-testing",
+  "examples/issue-commenter",
+  "examples/repo-config-demo",
+  "examples/custom-routes",
 ]
+
+[tool.uv.sources]
+ghappkit = { workspace = true }
+ghappkit-client = { workspace = true }
+ghappkit-testing = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = [
@@ -79,6 +87,14 @@ paths = [
   "packages/ghappkit-testing/src/ghappkit_testing",
 ]
 min_confidence = 80
+
+[tool.bandit]
+skips = ["B101"]
+exclude_dirs = [
+  "packages/ghappkit/src/ghappkit/tests",
+  "packages/ghappkit-client/src/ghappkit_client/tests",
+  "packages/ghappkit-testing/src/ghappkit_testing/tests",
+]
 
 [tool.coverage.run]
 branch = true

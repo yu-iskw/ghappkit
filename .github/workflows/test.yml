@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/test.yml
       - dev/**
+      - examples/**
       - packages/**
       - pyproject.toml
       - ruff.toml
@@ -31,7 +32,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Align locked Python pin with matrix
+        run: echo "${{ matrix.python-version }}" > .python-version
       - name: Install dependencies
+        env:
+          PYTHON_BIN: ${{ env.pythonLocation }}/bin/python
         run: |
           bash dev/setup.sh --deps "development"
       - name: Vulture (dead code)

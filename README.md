@@ -2,6 +2,18 @@
 
 FastAPI-native framework for building production-grade GitHub Apps in Python.
 
+## Workspace packages
+
+| Package                                                   | Purpose                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------ |
+| [`packages/ghappkit`](packages/ghappkit/)                 | FastAPI router, webhooks, contexts, repo config, execution   |
+| [`packages/ghappkit-client`](packages/ghappkit-client/)   | GitHub App JWT, installation tokens, REST/GraphQL helpers    |
+| [`packages/ghappkit-testing`](packages/ghappkit-testing/) | Signed payloads, fixtures, fake client, `GhappkitTestClient` |
+
+Examples live under [`examples/`](examples/). Authoritative design notes: [RFC 0001](docs/rfcs/0001-octoflow-fastapi-github-app-framework.md), [ADR 0001](docs/adr/0001-use-uv-workspace-and-split-github-client.md).
+
+Python tooling shares the root [`ruff.toml`](ruff.toml); flake8-type-checking `TC001`–`TC003` are ignored there because Pyright already validates imports and PEP 563 annotations keep many imports typing-only at runtime.
+
 ## Features
 
 - **Package Management**: [uv](https://github.com/astral-sh/uv)

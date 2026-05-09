@@ -10,4 +10,8 @@ name = "ghappkit-testing"
 version = "0.1.0"
 description = "Testing and simulation helpers for ghappkit."
 requires-python = ">=3.10.0"
-dependencies = []
+dependencies = ["ghappkit", "ghappkit-client", "httpx>=0.27", "pytest>=8"]
+
+[tool.uv.sources]
+ghappkit = { workspace = true }
+ghappkit-client = { workspace = true }

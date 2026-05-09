@@ -18,12 +18,10 @@ set -Eeuo pipefail
 SCRIPT_FILE="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "${SCRIPT_FILE}")"
 MODULE_DIR="$(dirname "${SCRIPT_DIR}")"
-if command -v python >/dev/null 2>&1; then
-	PYTHON_BIN="$(command -v python)"
-elif command -v python3 >/dev/null 2>&1; then
-	PYTHON_BIN="$(command -v python3)"
-else
-	echo "Error: python is not available on PATH"
+# Optional: set PYTHON_BIN (e.g. CI matrix interpreter). When unset, uv uses the
+# project's .python-version so the venv matches the lockfile pins.
+if [[ -n "${PYTHON_BIN:-}" ]] && [[ ! -x "${PYTHON_BIN}" ]]; then
+	echo "Error: PYTHON_BIN is not executable: ${PYTHON_BIN}"
 	exit 1
 fi
 
@@ -47,16 +45,37 @@ done
 cd "${MODULE_DIR}"
 
 # Install uv and dependencies
-if ! command -v uv >/dev/null 2>&1; then
-	"${PYTHON_BIN}" -m pip install --force-reinstall -r "${MODULE_DIR}/requirements.setup.txt"
+if ! command -v uv > /dev/null 2>&1; then
+	_bootstrap_py=""
+	if command -v python > /dev/null 2>&1; then
+		_bootstrap_py="$(command -v python)"
+	elif command -v python3 > /dev/null 2>&1; then
+		_bootstrap_py="$(command -v python3)"
+	else
+		echo "Error: python is not available on PATH (needed to bootstrap uv)"
+		exit 1
+	fi
+	"${_bootstrap_py}" -m pip install --force-reinstall -r "${MODULE_DIR}/requirements.setup.txt"
 fi
 
 # Create virtual environment
-uv venv --allow-existing --python "${PYTHON_BIN}"
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+	uv venv --allow-existing --python "${PYTHON_BIN}"
+else
+	uv venv --allow-existing
+fi
 
 # Install package and dependencies
 if [[ ${deps} == "production" ]]; then
-	uv sync --python "${PYTHON_BIN}" --all-packages --no-dev
+	if [[ -n "${PYTHON_BIN:-}" ]]; then
+		uv sync --python "${PYTHON_BIN}" --all-packages --no-dev
+	else
+		uv sync --all-packages --no-dev
+	fi
 else
-	uv sync --python "${PYTHON_BIN}" --all-packages --all-extras
+	if [[ -n "${PYTHON_BIN:-}" ]]; then
+		uv sync --python "${PYTHON_BIN}" --all-packages --all-extras --group dev
+	else
+		uv sync --all-packages --all-extras --group dev
+	fi
 fi

@@ -1,4 +1,4 @@
-# Bandit project defaults. Trunk invokes bandit from the repo root; assert (B101) is
-# expected in pytest tests, so the colocated test package is excluded (see Ruff S101 per-file-ignores).
+# Bandit defaults (INI). Kept in sync with pyproject.toml [tool.bandit] for `bandit -c pyproject.toml`.
 [bandit]
-exclude = src/ghappkit/tests
+skips = B101
+exclude_dirs = packages/ghappkit/src/ghappkit/tests,packages/ghappkit-client/src/ghappkit_client/tests,packages/ghappkit-testing/src/ghappkit_testing/tests
