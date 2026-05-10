@@ -276,7 +276,7 @@ class GitHubApp:
                 )
                 return
             qualified = qualified_event_name(headers.event, payload)
-            handlers = self._registry.handlers_for(qualified)
+            handlers = self._registry.handlers_for(qualified, headers.event)
             if isinstance(executor, NoopExecutor):
                 return
             if not handlers:
@@ -311,7 +311,7 @@ class GitHubApp:
     ) -> Response:
         payload = parse_json_payload(body)
         qualified = qualified_event_name(headers.event, payload)
-        handlers = self._registry.handlers_for(qualified)
+        handlers = self._registry.handlers_for(qualified, headers.event)
 
         if isinstance(executor, NoopExecutor):
             return Response(status_code=202)
@@ -510,7 +510,10 @@ class GitHubApp:
         if installation_id is None:
             return MissingInstallationGitHubClient()
         if self._token_provider is None:
-            return MissingInstallationGitHubClient()
+            raise GitHubApiError(
+                "GitHub App private key is not configured but installation ID was present",
+                status_code=None,
+            )
         token = await self._token_provider.get_token(installation_id)
         return DefaultGitHubClient(
             http_client=self._http_client,
