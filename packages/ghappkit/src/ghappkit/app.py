@@ -99,15 +99,11 @@ def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:
     can treat any signature problem as unauthorized without parsing subtypes.
 
     Internal server errors for mapped types are driven by ``_WEBHOOK_MAPPED_INTERNAL_ERRORS``.
-    Client-facing HTTP 400 responses use stable ``detail`` strings (no exception message passthrough)
-    for header and payload parse failures.
     """
     if isinstance(exc, WebhookSignatureError):
         raise HTTPException(status_code=401, detail="invalid_webhook_signature") from exc
-    if isinstance(exc, WebhookHeaderError):
-        raise HTTPException(status_code=400, detail="invalid_webhook_headers") from exc
-    if isinstance(exc, PayloadParseError):
-        raise HTTPException(status_code=400, detail="invalid_webhook_payload") from exc
+    if isinstance(exc, (WebhookHeaderError, PayloadParseError)):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     for exc_cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS:
         if isinstance(exc, exc_cls):
             raise HTTPException(status_code=500, detail=detail) from exc
@@ -118,14 +114,7 @@ def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:
 
 
 class GitHubApp:
-    """FastAPI-native GitHub App registry.
-
-    **Webhook handler matching:** By default only the qualified event name (for example
-    ``issues.opened``) and catch-all handlers run. To restore older behavior where
-    handlers registered for the base GitHub event (``issues``) also run for actionable
-    payloads, set :attr:`GitHubAppSettings.webhook_match_legacy_base_event_handlers` to
-    ``True``.
-    """
+    """FastAPI-native GitHub App registry."""
 
     def __init__(
         self,
@@ -148,24 +137,6 @@ class GitHubApp:
         self._config_loader = RepoConfigLoader(settings, ttl_seconds=config_ttl_seconds)
         self._client_factory = github_client_factory
         ensure_delivery_log_sanitize_filter(_LOGGER)
-        if self._token_provider is not None and self.settings.app_id == 0:
-            raise ValueError(
-                "GitHubAppSettings.app_id must be a non-zero GitHub App ID when a "
-                "private key is configured (installation token / JWT flow). Webhook-only "
-                "setups should omit GITHUB_APP_PRIVATE_KEY and GITHUB_APP_PRIVATE_KEY_PATH.",
-            )
-
-    def _handlers_for_delivery(
-        self,
-        qualified_event: str,
-        headers: GitHubDeliveryHeaders,
-    ) -> list[Handler]:
-        base = (
-            headers.event
-            if self.settings.webhook_match_legacy_base_event_handlers
-            else None
-        )
-        return self._registry.handlers_for(qualified_event, base_event=base)
 
     async def aclose(self) -> None:
         """Close resources owned by this app (for example the default ``httpx.AsyncClient``)."""
@@ -307,7 +278,7 @@ class GitHubApp:
                 )
                 return
             qualified, payload_action = resolve_qualified_webhook_event(headers.event, payload)
-            handlers = self._handlers_for_delivery(qualified, headers)
+            handlers = self._registry.handlers_for(qualified)
             if isinstance(executor, NoopExecutor):
                 return
             if not handlers:
@@ -343,7 +314,7 @@ class GitHubApp:
     ) -> Response:
         payload = parse_json_payload(body)
         qualified, payload_action = resolve_qualified_webhook_event(headers.event, payload)
-        handlers = self._handlers_for_delivery(qualified, headers)
+        handlers = self._registry.handlers_for(qualified)
 
         if isinstance(executor, NoopExecutor):
             return Response(status_code=202)

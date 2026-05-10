@@ -52,27 +52,17 @@ class EventRegistry:
         )
         self._error_hooks.append(handler)
 
-    def handlers_for(
-        self,
-        qualified_event: str,
-        *,
-        base_event: str | None = None,
-    ) -> list[Handler]:
+    def handlers_for(self, qualified_event: str) -> list[Handler]:
         """Return handlers in deterministic registration order.
 
-        Default (``base_event`` omitted or equal to ``qualified_event``):
-
+        P0 matching is limited to:
         1. Handlers registered for the qualified name (``event`` or ``event.action``).
         2. Catch-all handlers registered via :meth:`add_any`.
 
-        Legacy compatibility: when ``base_event`` is set and differs from
-        ``qualified_event`` (for example ``issues`` vs ``issues.opened``), handlers
-        registered for ``base_event`` run after qualified handlers and before catch-alls.
+        Base-event-only registrations (for example ``issues``) do **not** run for
+        qualified deliveries such as ``issues.opened``.
         """
-        specific = [*self._specific.get(qualified_event, [])]
-        if base_event is not None and base_event != qualified_event:
-            specific.extend(self._specific.get(base_event, []))
-        return [*specific, *self._catch_all]
+        return [*self._specific.get(qualified_event, []), *self._catch_all]
 
     def error_handlers(self) -> Iterable[ErrorHook]:
         """Registered error hooks."""
