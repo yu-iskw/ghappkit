@@ -6,7 +6,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextvars import ContextVar
-from typing import Any, Final, NoReturn, cast
+from typing import Any, NoReturn, cast
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
@@ -24,7 +24,7 @@ from ghappkit.context import (
     extract_sender_ref,
 )
 from ghappkit.delivery_logging import delivery_logger, ensure_delivery_log_sanitize_filter
-from ghappkit.event_resolution import resolve_qualified_webhook_event
+from ghappkit.event_resolution import github_payload_action, qualified_event_name
 from ghappkit.exceptions import (
     ErrorHookExecutionError,
     EventModelError,
@@ -50,8 +50,6 @@ from ghappkit.stub_github import MissingInstallationGitHubClient
 from ghappkit.webhooks import parse_delivery_after_optional_signature
 
 _LOGGER = logging.getLogger("ghappkit")
-
-_MISSING_INSTALL_CLIENT: Final = MissingInstallationGitHubClient()
 
 _delivery_failure_phase: ContextVar[str] = ContextVar(
     "ghappkit_delivery_failure_phase",
@@ -277,7 +275,7 @@ class GitHubApp:
                     },
                 )
                 return
-            qualified, payload_action = resolve_qualified_webhook_event(headers.event, payload)
+            qualified = qualified_event_name(headers.event, payload)
             handlers = self._registry.handlers_for(qualified)
             if isinstance(executor, NoopExecutor):
                 return
@@ -290,7 +288,6 @@ class GitHubApp:
                 payload,
                 qualified,
                 handlers,
-                payload_action=payload_action,
             )
 
         try:
@@ -313,7 +310,7 @@ class GitHubApp:
         executor: DeliveryExecutor,
     ) -> Response:
         payload = parse_json_payload(body)
-        qualified, payload_action = resolve_qualified_webhook_event(headers.event, payload)
+        qualified = qualified_event_name(headers.event, payload)
         handlers = self._registry.handlers_for(qualified)
 
         if isinstance(executor, NoopExecutor):
@@ -329,7 +326,6 @@ class GitHubApp:
                 payload,
                 qualified,
                 handlers,
-                payload_action=payload_action,
             )
 
         try:
@@ -377,8 +373,6 @@ class GitHubApp:
         payload: dict[str, Any],
         qualified_event: str,
         handlers: Sequence[Handler],
-        *,
-        payload_action: str | None,
     ) -> None:
         """Run handlers; log full failures when work is deferred (GitHub already got 202)."""
         try:
@@ -388,7 +382,6 @@ class GitHubApp:
                 payload,
                 qualified_event,
                 handlers,
-                payload_action=payload_action,
             )
         except Exception as exc:
             if isinstance(executor, FastAPIBackgroundExecutor):
@@ -417,8 +410,6 @@ class GitHubApp:
         payload: dict[str, Any],
         qualified_event: str,
         handlers: Sequence[Handler],
-        *,
-        payload_action: str | None,
     ) -> None:
         _delivery_failure_phase.set("github_client")
         installation_id = extract_installation_id(payload)
@@ -441,7 +432,7 @@ class GitHubApp:
             delivery_id=headers.delivery_id,
             event=headers.event,
             qualified_event=qualified_event,
-            action=payload_action,
+            action=github_payload_action(payload),
             payload=typed_payload,
             raw_payload=payload,
             installation_id=installation_id,
@@ -517,9 +508,9 @@ class GitHubApp:
         if self._client_factory is not None:
             return cast("GitHubClient", await self._client_factory(installation_id))
         if installation_id is None:
-            return _MISSING_INSTALL_CLIENT
+            return MissingInstallationGitHubClient()
         if self._token_provider is None:
-            return _MISSING_INSTALL_CLIENT
+            return MissingInstallationGitHubClient()
         token = await self._token_provider.get_token(installation_id)
         return DefaultGitHubClient(
             http_client=self._http_client,

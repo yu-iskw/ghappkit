@@ -139,6 +139,10 @@ def test_json_array_body_returns_400() -> None:
         use_background_tasks=False,
     )
 
+    @github.on("issues.opened")
+    async def _handler(ctx: WebhookContext[IssuesPayload, Any]) -> None:
+        assert ctx.repo is not None
+
     api = FastAPI()
     api.include_router(github.router(), prefix="/api")
     client = TestClient(api)
@@ -256,6 +260,10 @@ def test_invalid_json_returns_400_when_parse_is_inline() -> None:
         executor=InlineExecutor(),
         use_background_tasks=False,
     )
+
+    @github.on("issues.opened")
+    async def _handler(ctx: WebhookContext[IssuesPayload, Any]) -> None:
+        assert ctx.repo is not None
 
     api = FastAPI()
     api.include_router(github.router(), prefix="/api")
