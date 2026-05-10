@@ -156,12 +156,8 @@ class GitHubApp:
         self._registry = EventRegistry()
         self._http_client = http_client or httpx.AsyncClient()
         self._owns_http_client = http_client is None
-        if token_provider is not None:
-            self._token_provider = token_provider
-            built_token_provider = None
-        else:
-            built_token_provider = self._maybe_build_token_provider()
-            self._token_provider = built_token_provider
+        built_token_provider = self._maybe_build_token_provider()
+        self._token_provider = token_provider or built_token_provider
         self._config_loader = RepoConfigLoader(settings, ttl_seconds=config_ttl_seconds)
         self._client_factory = github_client_factory
         ensure_delivery_log_sanitize_filter(_LOGGER)
