@@ -106,8 +106,8 @@ class _InstallationTokenProbeExplodes:
         raise InstallationAuthError("unit test installation auth failure")
 
 
-def test_router_webhook_without_api_credentials_returns_202_when_handler_skips_github() -> None:
-    """Installation metadata without a token provider still yields a stub client (P0 webhook path)."""
+def test_router_github_api_error_detail_without_client_factory() -> None:
+    """Missing app credentials with installation in payload maps to ``webhook_github_api_error``."""
     settings = make_test_settings(require_signature=True)
     github = GitHubApp(
         settings=settings,
@@ -134,7 +134,8 @@ def test_router_webhook_without_api_credentials_returns_202_when_handler_skips_g
             "X-Hub-Signature-256": sig,
         },
     )
-    assert resp.status_code == status.HTTP_202_ACCEPTED
+    assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert resp.json()["detail"] == "webhook_github_api_error"
 
 
 def test_router_installation_auth_error_detail() -> None:

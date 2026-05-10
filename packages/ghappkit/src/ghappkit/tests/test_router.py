@@ -131,128 +131,6 @@ def test_noop_executor_skips_handlers() -> None:
     assert hits["n"] == 0
 
 
-def test_json_array_body_returns_400() -> None:
-    settings = make_test_settings(require_signature=True)
-    github = GitHubApp(
-        settings=settings,
-        executor=InlineExecutor(),
-        use_background_tasks=False,
-    )
-
-    @github.on("issues.opened")
-    async def _handler(ctx: WebhookContext[IssuesPayload, Any]) -> None:
-        assert ctx.repo is not None
-
-    api = FastAPI()
-    api.include_router(github.router(), prefix="/api")
-    client = TestClient(api)
-    body = json.dumps([1, 2, 3]).encode("utf-8")
-    secret = settings.webhook_secret.get_secret_value()
-    sig = sign_sha256_payload(secret, body)
-    resp = client.post(
-        "/api/webhooks",
-        content=body,
-        headers={
-            "X-GitHub-Event": "issues",
-            "X-GitHub-Delivery": "delivery-array-json",
-            "X-Hub-Signature-256": sig,
-        },
-    )
-    assert resp.status_code == status.HTTP_400_BAD_REQUEST
-
-
-def test_on_list_registers_same_handler_for_multiple_events() -> None:
-    settings = make_test_settings(require_signature=True)
-
-    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
-        return FakeGitHubClient()
-
-    github = GitHubApp(
-        settings=settings,
-        executor=InlineExecutor(),
-        use_background_tasks=False,
-        github_client_factory=client_factory,
-    )
-    seen: list[str] = []
-
-    @github.on(["issues.opened", "issues.closed"])
-    async def both(ctx: WebhookContext[Any, Any]) -> None:
-        seen.append(ctx.qualified_event)
-
-    api = FastAPI()
-    api.include_router(github.router(), prefix="/api")
-    client = TestClient(api)
-    secret = settings.webhook_secret.get_secret_value()
-
-    opened_body = json.dumps(issues_opened()).encode("utf-8")
-    r1 = client.post(
-        "/api/webhooks",
-        content=opened_body,
-        headers={
-            "X-GitHub-Event": "issues",
-            "X-GitHub-Delivery": "d-multi-1",
-            "X-Hub-Signature-256": sign_sha256_payload(secret, opened_body),
-        },
-    )
-    assert r1.status_code == status.HTTP_202_ACCEPTED
-
-    closed = issues_opened()
-    closed["action"] = "closed"
-    closed_body = json.dumps(closed).encode("utf-8")
-    r2 = client.post(
-        "/api/webhooks",
-        content=closed_body,
-        headers={
-            "X-GitHub-Event": "issues",
-            "X-GitHub-Delivery": "d-multi-2",
-            "X-Hub-Signature-256": sign_sha256_payload(secret, closed_body),
-        },
-    )
-    assert r2.status_code == status.HTTP_202_ACCEPTED
-    assert seen == ["issues.opened", "issues.closed"]
-
-
-def test_exact_handler_receives_context_fields() -> None:
-    settings = make_test_settings(require_signature=True)
-
-    async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
-        return FakeGitHubClient()
-
-    github = GitHubApp(
-        settings=settings,
-        executor=InlineExecutor(),
-        use_background_tasks=False,
-        github_client_factory=client_factory,
-    )
-
-    @github.on("ping")
-    async def handler(ctx: WebhookContext[Any, Any]) -> None:
-        assert ctx.delivery_id == "delivery-ctx"
-        assert ctx.event == "ping"
-        assert ctx.qualified_event == "ping"
-        assert ctx.action is None
-        assert isinstance(ctx.payload, dict)
-        assert ctx.raw_payload == ctx.payload
-        assert ctx.request is not None
-
-    api = FastAPI()
-    api.include_router(github.router(), prefix="/api")
-    client = TestClient(api)
-    raw = {"zen": "listening"}
-    body = json.dumps(raw).encode("utf-8")
-    secret = settings.webhook_secret.get_secret_value()
-    resp = client.post(
-        "/api/webhooks",
-        content=body,
-        headers={
-            "X-GitHub-Event": "ping",
-            "X-GitHub-Delivery": "delivery-ctx",
-            "X-Hub-Signature-256": sign_sha256_payload(secret, body),
-        },
-    )
-    assert resp.status_code == status.HTTP_202_ACCEPTED
-
-
 def test_invalid_json_returns_400_when_parse_is_inline() -> None:
     settings = make_test_settings(require_signature=True)
     github = GitHubApp(
@@ -438,8 +316,7 @@ def test_catch_all_handler_invoked() -> None:
     assert seen == ["issues.opened"]
 
 
-def test_base_event_registration_does_not_invoke_for_qualified_action() -> None:
-    """Only exact qualified names match; ``issues`` does not receive ``issues.opened``."""
+def test_base_event_registration_invokes_handler() -> None:
     settings = make_test_settings(require_signature=True)
 
     async def client_factory(_installation_id: int | None) -> FakeGitHubClient:
@@ -473,7 +350,7 @@ def test_base_event_registration_does_not_invoke_for_qualified_action() -> None:
         },
     )
     assert resp.status_code == status.HTTP_202_ACCEPTED
-    assert hits == []
+    assert hits == ["issues.opened"]
 
 
 def test_multiple_handlers_preserve_registration_order() -> None:

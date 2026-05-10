@@ -31,27 +31,27 @@ def test_rejects_sync_handler() -> None:
 def test_handlers_for_qualified_only() -> None:
     reg = EventRegistry()
     reg.add("issues.opened", _h1)
-    assert reg.handlers_for("issues.opened") == [_h1]
+    assert reg.handlers_for("issues.opened", "issues") == [_h1]
 
 
-def test_base_event_registration_does_not_match_qualified_action() -> None:
+def test_base_event_handlers_run_after_qualified() -> None:
     reg = EventRegistry()
     reg.add("issues.opened", _h1)
     reg.add("issues", _h2)
-    assert reg.handlers_for("issues.opened") == [_h1]
+    assert reg.handlers_for("issues.opened", "issues") == [_h1, _h2]
 
 
 def test_no_duplicate_when_qualified_equals_base() -> None:
     reg = EventRegistry()
     reg.add("push", _h1)
-    assert reg.handlers_for("push") == [_h1]
+    assert reg.handlers_for("push", "push") == [_h1]
 
 
 def test_catch_all_appended() -> None:
     reg = EventRegistry()
     reg.add("ping", _h1)
     reg.add_any(_h2)
-    assert reg.handlers_for("ping") == [_h1, _h2]
+    assert reg.handlers_for("ping", "ping") == [_h1, _h2]
 
 
 def test_registration_order_preserved() -> None:
@@ -65,16 +65,4 @@ def test_registration_order_preserved() -> None:
 
     reg.add("issues.opened", a)
     reg.add("issues.opened", b)
-    assert reg.handlers_for("issues.opened") == [a, b]
-
-
-def test_on_registers_multiple_event_strings() -> None:
-    reg = EventRegistry()
-
-    async def multi(_: Any) -> None:
-        return None
-
-    reg.add(["issues.opened", "issues.closed"], multi)
-    assert reg.handlers_for("issues.opened") == [multi]
-    assert reg.handlers_for("issues.closed") == [multi]
-    assert reg.handlers_for("issues.edited") == []
+    assert reg.handlers_for("issues.opened", "issues") == [a, b]

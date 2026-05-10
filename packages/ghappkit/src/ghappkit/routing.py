@@ -52,18 +52,17 @@ class EventRegistry:
         )
         self._error_hooks.append(handler)
 
-    def handlers_for(self, qualified_event: str) -> list[Handler]:
+    def handlers_for(self, qualified_event: str, base_event: str) -> list[Handler]:
         """Return handlers in deterministic registration order.
 
-        P0 matching is limited to:
-        1. Handlers registered for the qualified name (``event`` or ``event.action``).
-        2. Catch-all handlers registered via :meth:`add_any`.
-
-        Base-event-only registrations (for example ``issues``) do **not** run for
-        qualified deliveries such as ``issues.opened``.
+        Order: handlers for the qualified name, then handlers registered only for
+        the base ``X-GitHub-Event`` value (when it differs from the qualified name),
+        then catch-all handlers.
         """
         ordered: list[Handler] = []
         ordered.extend(self._specific.get(qualified_event, []))
+        if base_event != qualified_event:
+            ordered.extend(self._specific.get(base_event, []))
         ordered.extend(self._catch_all)
         return ordered
 
