@@ -62,7 +62,10 @@ class EventRegistry:
         Base-event-only registrations (for example ``issues``) do **not** run for
         qualified deliveries such as ``issues.opened``.
         """
-        return [*self._specific.get(qualified_event, []), *self._catch_all]
+        ordered: list[Handler] = []
+        ordered.extend(self._specific.get(qualified_event, []))
+        ordered.extend(self._catch_all)
+        return ordered
 
     def error_handlers(self) -> Iterable[ErrorHook]:
         """Registered error hooks."""
