@@ -24,7 +24,7 @@ class _StubInstallationTokenProvider:
     ) -> InstallationToken:
         del installation_id, permissions, repository_ids
         return InstallationToken(
-            token="",
+            token="stub",  # noqa: S106
             expires_at=datetime.now(timezone.utc),
         )
 
