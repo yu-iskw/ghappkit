@@ -13,11 +13,11 @@ def parse_json_payload(body: bytes) -> dict[str, Any]:
     try:
         text = body.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise PayloadParseError("payload must be utf-8", kind="utf8") from exc
+        raise PayloadParseError("payload must be utf-8") from exc
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise PayloadParseError("payload is not valid JSON", kind="json") from exc
+        raise PayloadParseError("payload is not valid JSON") from exc
     if not isinstance(data, dict):
-        raise PayloadParseError("payload JSON must be an object", kind="not_object")
+        raise PayloadParseError("payload JSON must be an object")
     return data

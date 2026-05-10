@@ -73,17 +73,7 @@ def _probe_for_mapped_internal(exc_cls: type[BaseException]) -> BaseException:
     [
         (MissingWebhookSignatureError("missing"), 401, "invalid_webhook_signature"),
         (WebhookHeaderError("missing event"), 400, "invalid_webhook_headers"),
-        (PayloadParseError("bad json", kind="json"), 400, "invalid_webhook_payload_json"),
-        (
-            PayloadParseError("payload must be utf-8", kind="utf8"),
-            400,
-            "invalid_webhook_payload_encoding",
-        ),
-        (
-            PayloadParseError("payload JSON must be an object", kind="not_object"),
-            400,
-            "invalid_webhook_payload_not_object",
-        ),
+        (PayloadParseError("bad json"), 400, "invalid_webhook_payload"),
         *[
             (_probe_for_mapped_internal(cls), 500, detail)
             for cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS

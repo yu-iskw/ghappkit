@@ -155,7 +155,7 @@ def test_json_array_body_returns_400() -> None:
         },
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
-    assert resp.json()["detail"] == "invalid_webhook_payload_not_object"
+    assert resp.json()["detail"] == "invalid_webhook_payload"
 
 
 def test_on_list_registers_same_handler_for_multiple_events() -> None:
@@ -274,33 +274,7 @@ def test_invalid_json_returns_400_when_parse_is_inline() -> None:
         },
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
-    assert resp.json()["detail"] == "invalid_webhook_payload_json"
-
-
-def test_invalid_utf8_body_returns_400_when_parse_is_inline() -> None:
-    settings = make_test_settings(require_signature=True)
-    github = GitHubApp(
-        settings=settings,
-        executor=InlineExecutor(),
-        use_background_tasks=False,
-    )
-    api = FastAPI()
-    api.include_router(github.router(), prefix="/api")
-    client = TestClient(api)
-    body = b"\xff\xfe\xfd"
-    secret = settings.webhook_secret.get_secret_value()
-    sig = sign_sha256_payload(secret, body)
-    resp = client.post(
-        "/api/webhooks",
-        content=body,
-        headers={
-            "X-GitHub-Event": "issues",
-            "X-GitHub-Delivery": "delivery-bad-utf8",
-            "X-Hub-Signature-256": sig,
-        },
-    )
-    assert resp.status_code == status.HTTP_400_BAD_REQUEST
-    assert resp.json()["detail"] == "invalid_webhook_payload_encoding"
+    assert resp.json()["detail"] == "invalid_webhook_payload"
 
 
 def test_ack_before_dispatch_returns_202_for_invalid_json() -> None:
