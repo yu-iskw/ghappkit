@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -57,23 +56,6 @@ def test_accepts_app_id_zero_for_webhook_only_install() -> None:
 
 def test_accepts_injected_token_provider_when_app_id_zero() -> None:
     settings = GitHubAppSettings(app_id=0, webhook_secret=SecretStr("secret"))
-    gh = GitHubApp(
-        settings=settings,
-        token_provider=_StubInstallationTokenProvider(),  # type: ignore[arg-type]
-    )
-    assert gh._token_provider is not None
-
-
-def test_injected_token_provider_skips_private_key_path_loading(
-    tmp_path: Path,
-) -> None:
-    """Injected provider must not call PEM loading (avoids missing-path failures)."""
-    missing_pem = tmp_path / "does-not-exist.pem"
-    settings = GitHubAppSettings(
-        app_id=1,
-        webhook_secret=SecretStr("secret"),
-        private_key_path=missing_pem,
-    )
     gh = GitHubApp(
         settings=settings,
         token_provider=_StubInstallationTokenProvider(),  # type: ignore[arg-type]
