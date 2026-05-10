@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from ghappkit_client.errors import GhappkitError
-
-PayloadParseFailureKind = Literal["utf8", "json", "not_object"]
 
 
 class WebhookSignatureError(GhappkitError):
@@ -32,16 +30,7 @@ class WebhookHeaderError(GhappkitError):
 
 
 class PayloadParseError(GhappkitError):
-    """Webhook body could not be decoded or parsed as a JSON object."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        kind: PayloadParseFailureKind = "json",
-    ) -> None:
-        super().__init__(message)
-        self.kind: PayloadParseFailureKind = kind
+    """Payload is not valid JSON."""
 
 
 class EventModelError(GhappkitError):

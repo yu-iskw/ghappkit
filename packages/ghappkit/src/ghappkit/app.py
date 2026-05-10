@@ -77,12 +77,6 @@ _WEBHOOK_DELIVERY_EXCEPTIONS_TO_RERAISE: tuple[type[Exception], ...] = tuple(
     pair[0] for pair in _WEBHOOK_MAPPED_INTERNAL_ERRORS
 )
 
-_WEBHOOK_PAYLOAD_PARSE_HTTP_DETAIL: dict[str, str] = {
-    "utf8": "invalid_webhook_payload_encoding",
-    "json": "invalid_webhook_payload_json",
-    "not_object": "invalid_webhook_payload_not_object",
-}
-
 
 def _chain_handler_failure(
     exc: BaseException,
@@ -105,21 +99,15 @@ def _raise_http_for_webhook_route_failure(exc: Exception) -> NoReturn:
     can treat any signature problem as unauthorized without parsing subtypes.
 
     Internal server errors for mapped types are driven by ``_WEBHOOK_MAPPED_INTERNAL_ERRORS``.
-    Client-facing HTTP 400 responses use stable ``detail`` strings (no exception message
-    passthrough). Payload parse failures map to ``invalid_webhook_payload_encoding``,
-    ``invalid_webhook_payload_json``, or ``invalid_webhook_payload_not_object`` depending
-    on failure mode; header problems use ``invalid_webhook_headers``.
+    Client-facing HTTP 400 responses use stable ``detail`` strings (no exception message passthrough)
+    for header and payload parse failures.
     """
     if isinstance(exc, WebhookSignatureError):
         raise HTTPException(status_code=401, detail="invalid_webhook_signature") from exc
     if isinstance(exc, WebhookHeaderError):
         raise HTTPException(status_code=400, detail="invalid_webhook_headers") from exc
     if isinstance(exc, PayloadParseError):
-        detail = _WEBHOOK_PAYLOAD_PARSE_HTTP_DETAIL.get(
-            exc.kind,
-            "invalid_webhook_payload",
-        )
-        raise HTTPException(status_code=400, detail=detail) from exc
+        raise HTTPException(status_code=400, detail="invalid_webhook_payload") from exc
     for exc_cls, detail in _WEBHOOK_MAPPED_INTERNAL_ERRORS:
         if isinstance(exc, exc_cls):
             raise HTTPException(status_code=500, detail=detail) from exc
@@ -156,16 +144,11 @@ class GitHubApp:
         self._registry = EventRegistry()
         self._http_client = http_client or httpx.AsyncClient()
         self._owns_http_client = http_client is None
-        built_token_provider = self._maybe_build_token_provider()
-        self._token_provider = token_provider or built_token_provider
+        self._token_provider = token_provider or self._maybe_build_token_provider()
         self._config_loader = RepoConfigLoader(settings, ttl_seconds=config_ttl_seconds)
         self._client_factory = github_client_factory
         ensure_delivery_log_sanitize_filter(_LOGGER)
-        if (
-            token_provider is None
-            and built_token_provider is not None
-            and self.settings.app_id == 0
-        ):
+        if self._token_provider is not None and self.settings.app_id == 0:
             raise ValueError(
                 "GitHubAppSettings.app_id must be a non-zero GitHub App ID when a "
                 "private key is configured (installation token / JWT flow). Webhook-only "
