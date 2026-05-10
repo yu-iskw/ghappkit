@@ -38,15 +38,7 @@ class GitHubAppSettings(BaseSettings):
     github_api_url: AnyHttpUrl = Field(default=AnyHttpUrl("https://api.github.com"))
     github_web_url: AnyHttpUrl = Field(default=AnyHttpUrl("https://github.com"))
     webhook_path: str = Field(default="/webhooks")
-    require_signature: bool = Field(
-        default=True,
-        description=(
-            "When True (default), ``X-Hub-Signature-256`` HMAC is verified on the raw "
-            "request body before headers are parsed or JSON is decoded. Set False only "
-            "for local tests or tightly controlled environments — disabling it exposes "
-            "the webhook endpoint to unauthenticated traffic."
-        ),
-    )
+    require_signature: bool = Field(default=True)
     webhook_match_legacy_base_event_handlers: bool = Field(
         default=False,
         description=(
