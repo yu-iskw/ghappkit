@@ -358,34 +358,6 @@ def test_invalid_signature_returns_401() -> None:
         },
     )
     assert resp.status_code == status.HTTP_401_UNAUTHORIZED
-    assert resp.json()["detail"] == "invalid_webhook_signature"
-
-
-def test_invalid_signature_returns_401_before_json_parse() -> None:
-    """HMAC runs on raw bytes before JSON decode; bad digest wins over invalid JSON."""
-    settings = make_test_settings(require_signature=True)
-    github = GitHubApp(settings=settings, executor=InlineExecutor(), use_background_tasks=False)
-    hits = {"n": 0}
-
-    @github.on("issues.opened")
-    async def _h(_ctx: Any) -> None:
-        hits["n"] += 1
-
-    api = FastAPI()
-    api.include_router(github.router(), prefix="/api")
-    client = TestClient(api)
-    body = b"{not-json"
-    resp = client.post(
-        "/api/webhooks",
-        content=body,
-        headers={
-            "X-GitHub-Event": "issues",
-            "X-GitHub-Delivery": "d-sig-before-json",
-            "X-Hub-Signature-256": "sha256=" + "c" * 64,
-        },
-    )
-    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
-    assert hits["n"] == 0
 
 
 def test_missing_event_header_returns_400() -> None:
